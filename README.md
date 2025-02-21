@@ -1,4 +1,29 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Hoitohuone Zenni Website
+
+A professional website for a health care provider, built with Next.js and React, designed to provide information about healing services and facilitate appointment booking.
+
+## Overview
+
+This website serves as a digital presence for an energy healer, offering:
+- Service information and descriptions
+- Easy appointment booking through third-party integration
+- Client testimonials and FAQ
+- Contact capabilities
+- Multi-language support (Finnish primary, English secondary)
+
+## Technical Stack
+
+### Frontend
+- React
+- Next.js
+- Tailwind CSS
+- TypeScript
+
+### Infrastructure
+- Vercel (Hosting & Deployment)
+- Serverless Architecture
+
+## Project Structure
 
 ## Getting Started
 
