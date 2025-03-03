@@ -3,6 +3,9 @@ import { Inter, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import Navigation from "@/components/layout/Navigation";
 import Footer from "@/components/layout/Footer";
+import { Suspense } from 'react';
+import PageTransition from '@/components/PageTransition';
+import PageLoading from '@/components/PageLoading';
 
 const inter = Inter({
   variable: "--font-inter",
@@ -80,7 +83,9 @@ export default function RootLayout({
       <body className="min-h-screen flex flex-col">
         <Navigation />
         <main className="flex-grow pt-16">
-          {children}
+          <Suspense fallback={<PageLoading />}>
+            <PageTransition>{children}</PageTransition>
+          </Suspense>
         </main>
         <Footer />
       </body>
