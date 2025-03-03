@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 
 export default function TestimonialsPage() {
   useEffect(() => {
@@ -99,10 +100,27 @@ export default function TestimonialsPage() {
               </svg>
               <p className="text-neutral-600 mb-6">{testimonial.content}</p>
               <div className="flex justify-between items-end">
-                <div>
-                  <div className="font-medium">{testimonial.author}</div>
-                  <div className="text-neutral-500 text-sm">
-                    {testimonial.title}
+                <div className="flex items-center gap-4">
+                  <div className="relative w-12 h-12 rounded-full overflow-hidden bg-neutral-100 animate-pulse">
+                    <Image
+                      src="/images/general/image.png"
+                      alt={testimonial.author}
+                      fill
+                      className="object-cover transition-opacity duration-300 opacity-0 group-loaded:opacity-100"
+                      sizes="48px"
+                      loading="lazy"
+                      onLoadingComplete={(e) => {
+                        e.currentTarget.classList.remove('opacity-0');
+                        e.currentTarget.classList.add('opacity-100');
+                        e.currentTarget.parentElement?.classList.remove('animate-pulse');
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <div className="font-medium">{testimonial.author}</div>
+                    <div className="text-neutral-500 text-sm">
+                      {testimonial.title}
+                    </div>
                   </div>
                 </div>
                 <div className="text-sm">
