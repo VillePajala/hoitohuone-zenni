@@ -15,8 +15,55 @@ const playfair = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  title: "Hoitohuone Zenni",
-  description: "Energiahoitoja ja hyvinvointipalveluja Helsingissä",
+  title: {
+    default: "Hoitohuone Zenni | Energiahoitoja Helsingissä",
+    template: "%s | Hoitohuone Zenni"
+  },
+  description: "Laadukkaita energiahoitoja ja hyvinvointipalveluja Helsingissä. Kokenut energiahoitaja tarjoaa yksilöllisiä hoitoja stressiin, uupumukseen ja kehon tasapainottamiseen.",
+  keywords: ["energiahoito", "hyvinvointi", "Helsinki", "hoitohuone", "zenni", "stressinhallinta", "kehon tasapaino", "energiahoitaja"],
+  authors: [{ name: "Hoitohuone Zenni" }],
+  creator: "Hoitohuone Zenni",
+  publisher: "Hoitohuone Zenni",
+  formatDetection: {
+    email: false,
+    address: false,
+    telephone: false,
+  },
+  metadataBase: new URL('https://hoitohuonezenni.fi'),
+  alternates: {
+    canonical: '/',
+    languages: {
+      'fi': '/fi',
+      'en': '/en',
+    },
+  },
+  openGraph: {
+    title: 'Hoitohuone Zenni | Energiahoitoja Helsingissä',
+    description: 'Laadukkaita energiahoitoja ja hyvinvointipalveluja Helsingissä. Kokenut energiahoitaja tarjoaa yksilöllisiä hoitoja.',
+    url: 'https://hoitohuonezenni.fi',
+    siteName: 'Hoitohuone Zenni',
+    locale: 'fi_FI',
+    type: 'website',
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+  },
+  verification: {
+    google: 'add-your-google-site-verification-here',
+  },
 };
 
 export default function RootLayout({

@@ -4,17 +4,17 @@ import { useEffect } from 'react';
 import ContactForm, { ContactFormData } from '@/components/ContactForm';
 
 const translations = {
-  name: 'Name',
-  email: 'Email',
-  phone: 'Phone',
-  subject: 'Subject',
-  message: 'Message',
-  submit: 'Send Message',
-  required: 'This field is required',
-  validEmail: 'Please enter a valid email address',
-  success: 'Thank you for your message! We\'ll get back to you soon.',
-  error: 'Something went wrong. Please try again later.',
-  phoneOptional: 'Phone (optional)',
+  name: 'Nimi',
+  email: 'Sähköposti',
+  phone: 'Puhelin',
+  subject: 'Aihe',
+  message: 'Viesti',
+  submit: 'Lähetä viesti',
+  required: 'Tämä kenttä on pakollinen',
+  validEmail: 'Anna kelvollinen sähköpostiosoite',
+  success: 'Kiitos viestistäsi! Palaamme asiaan pian.',
+  error: 'Jotain meni pieleen. Yritä myöhemmin uudelleen.',
+  phoneOptional: 'Puhelin (valinnainen)',
 };
 
 export default function ContactPage() {
@@ -48,10 +48,10 @@ export default function ContactPage() {
       {/* Hero Section */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-3xl mx-auto fade-in">
-          <h1 className="text-5xl font-serif mb-6">Contact Us</h1>
+          <h1 className="text-5xl font-serif mb-6">Ota yhteyttä</h1>
           <p className="text-xl text-neutral-600">
-            Have questions about our services? We're here to help. Fill out the form
-            below or use our contact information to get in touch.
+            Onko sinulla kysyttävää palveluistamme? Olemme täällä auttaaksemme. Täytä alla oleva lomake
+            tai käytä yhteystietojamme ottaaksesi meihin yhteyttä.
           </p>
         </div>
       </section>
@@ -62,31 +62,31 @@ export default function ContactPage() {
           {/* Contact Information */}
           <div className="space-y-8 fade-in">
             <div>
-              <h2 className="text-3xl font-serif mb-6">Get in Touch</h2>
+              <h2 className="text-3xl font-serif mb-6">Yhteystiedot</h2>
               <p className="text-neutral-600">
-                We'll get back to you within 24 hours during business days.
+                Vastaamme yhteydenottoihin arkisin 24 tunnin kuluessa.
               </p>
             </div>
 
             <div className="space-y-6">
               <div>
-                <h3 className="font-medium mb-2">Location</h3>
+                <h3 className="font-medium mb-2">Sijainti</h3>
                 <p className="text-neutral-600">
                   Hoitohuone Zenni
                   <br />
-                  Example Street 123
+                  Esimerkkikatu 123
                   <br />
                   00100 Helsinki
                   <br />
-                  Finland
+                  Suomi
                 </p>
               </div>
 
               <div>
-                <h3 className="font-medium mb-2">Contact Information</h3>
+                <h3 className="font-medium mb-2">Yhteystiedot</h3>
                 <div className="space-y-2 text-neutral-600">
                   <p>
-                    <span className="font-medium">Email:</span>{' '}
+                    <span className="font-medium">Sähköposti:</span>{' '}
                     <a
                       href="mailto:info@hoitohuonezenni.fi"
                       className="hover:text-neutral-900 transition-colors"
@@ -95,7 +95,7 @@ export default function ContactPage() {
                     </a>
                   </p>
                   <p>
-                    <span className="font-medium">Phone:</span>{' '}
+                    <span className="font-medium">Puhelin:</span>{' '}
                     <a
                       href="tel:+358401234567"
                       className="hover:text-neutral-900 transition-colors"
@@ -107,11 +107,11 @@ export default function ContactPage() {
               </div>
 
               <div>
-                <h3 className="font-medium mb-2">Opening Hours</h3>
+                <h3 className="font-medium mb-2">Aukioloajat</h3>
                 <div className="space-y-1 text-neutral-600">
-                  <p>Monday - Friday: 10:00 - 18:00</p>
-                  <p>Saturday: By appointment</p>
-                  <p>Sunday: Closed</p>
+                  <p>Maanantai - Perjantai: 10:00 - 18:00</p>
+                  <p>Lauantai: Ajanvarauksella</p>
+                  <p>Sunnuntai: Suljettu</p>
                 </div>
               </div>
             </div>
@@ -120,16 +120,6 @@ export default function ContactPage() {
           {/* Contact Form */}
           <div className="fade-in">
             <ContactForm onSubmit={handleSubmit} translations={translations} />
-          </div>
-        </div>
-      </section>
-
-      {/* Map Section */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 fade-in">
-        <div className="aspect-[16/9] bg-neutral-100 rounded-lg overflow-hidden">
-          {/* TODO: Add actual map integration */}
-          <div className="w-full h-full flex items-center justify-center text-neutral-400">
-            Map placeholder
           </div>
         </div>
       </section>

@@ -1,0 +1,9 @@
+---
+description: General rules to follow in every change made
+globs: 
+---
+
+# After every change, update the [hoitohuone-zenni-project-management.md](mdc:.documentation/hoitohuone-zenni-project-management.md) file
+
+- Any feature that is implemented should be updated accordingly to avoid implementing same features again in the future
+
