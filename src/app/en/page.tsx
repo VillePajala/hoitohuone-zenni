@@ -84,14 +84,19 @@ export default function HomePage() {
     <div className="space-y-24 pb-24">
       {/* Hero Section */}
       <section className="relative h-[90vh] min-h-[600px] flex items-center justify-center bg-neutral-50">
-        <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute inset-0 overflow-hidden bg-neutral-100 animate-pulse">
           <Image
             src="/images/general/image.png"
             alt="Hoitohuone Zenni healing environment"
             fill
-            className="object-cover"
+            className="object-cover transition-opacity duration-300 opacity-0 group-loaded:opacity-100"
             priority
             sizes="100vw"
+            onLoadingComplete={(image: HTMLImageElement) => {
+              image.classList.remove('opacity-0');
+              image.classList.add('opacity-100');
+              image.parentElement?.classList.remove('animate-pulse');
+            }}
           />
           <div className="absolute inset-0 bg-gradient-to-b from-white/50 to-white/95" />
         </div>
