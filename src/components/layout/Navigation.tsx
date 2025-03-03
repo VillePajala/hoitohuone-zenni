@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import LanguageSwitcher from '../LanguageSwitcher';
@@ -9,6 +9,18 @@ const Navigation = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const pathname = usePathname();
   const locale = pathname.startsWith('/en') ? 'en' : 'fi';
+
+  // Prevent scroll when mobile menu is open
+  useEffect(() => {
+    if (isMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isMenuOpen]);
 
   const navigationLinks = {
     fi: [
@@ -33,78 +45,101 @@ const Navigation = () => {
   const links = navigationLinks[locale as keyof typeof navigationLinks];
 
   return (
-    <nav className="fixed top-0 w-full bg-white/90 backdrop-blur-sm z-50 border-b border-neutral-200">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
-          <div className="flex-shrink-0 flex items-center">
-            <Link href={`/${locale}`} className="text-xl font-serif">
-              Hoitohuone Zenni
-            </Link>
-          </div>
+    <>
+      {/* Mobile menu overlay */}
+      {isMenuOpen && (
+        <div
+          className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 sm:hidden"
+          onClick={() => setIsMenuOpen(false)}
+          aria-hidden="true"
+        />
+      )}
 
-          {/* Desktop Navigation */}
-          <div className="hidden sm:flex sm:items-center sm:space-x-4">
+      <nav className="fixed top-0 w-full bg-white/90 backdrop-blur-sm z-50 border-b border-neutral-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between h-16">
+            <div className="flex-shrink-0 flex items-center">
+              <Link 
+                href={`/${locale}`} 
+                className="text-xl font-serif"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Hoitohuone Zenni
+              </Link>
+            </div>
+
+            {/* Desktop Navigation */}
+            <div className="hidden sm:flex sm:items-center sm:space-x-6">
+              {links.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-all duration-200
+                    ${isActive(link.href)
+                      ? 'text-neutral-900 bg-neutral-50'
+                      : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
+                    }`}
+                >
+                  {link.label}
+                </Link>
+              ))}
+              <LanguageSwitcher />
+            </div>
+
+            {/* Mobile menu button */}
+            <div className="sm:hidden flex items-center space-x-4">
+              <LanguageSwitcher />
+              <button
+                type="button"
+                className="inline-flex items-center justify-center p-2 rounded-md text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50 transition-colors"
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                aria-expanded={isMenuOpen}
+              >
+                <span className="sr-only">
+                  {locale === 'fi' ? 'Avaa päävalikko' : 'Open main menu'}
+                </span>
+                {isMenuOpen ? (
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                ) : (
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Mobile menu panel */}
+        <div
+          className={`absolute top-16 left-0 right-0 bg-white sm:hidden shadow-lg transition-all duration-200 ease-in-out ${
+            isMenuOpen ? 'opacity-100 visible' : 'opacity-0 invisible'
+          }`}
+        >
+          <div className="px-4 pt-2 pb-3 space-y-1">
             {links.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors
+                className={`block px-4 py-3 rounded-md text-base font-medium transition-colors
                   ${isActive(link.href)
-                    ? 'text-neutral-900'
+                    ? 'text-neutral-900 bg-neutral-50'
                     : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
                   }`}
+                onClick={() => setIsMenuOpen(false)}
               >
                 {link.label}
               </Link>
             ))}
-            <LanguageSwitcher />
-          </div>
-
-          {/* Mobile menu button */}
-          <div className="sm:hidden flex items-center space-x-4">
-            <LanguageSwitcher />
-            <button
-              type="button"
-              className="inline-flex items-center justify-center p-2 rounded-md text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50"
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-            >
-              <span className="sr-only">
-                {locale === 'fi' ? 'Avaa päävalikko' : 'Open main menu'}
-              </span>
-              {isMenuOpen ? (
-                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              ) : (
-                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-              )}
-            </button>
           </div>
         </div>
-      </div>
-
-      {/* Mobile menu */}
-      <div className={`sm:hidden ${isMenuOpen ? 'block' : 'hidden'}`}>
-        <div className="px-2 pt-2 pb-3 space-y-1 bg-white">
-          {links.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`block px-3 py-2 rounded-md text-base font-medium
-                ${isActive(link.href)
-                  ? 'text-neutral-900 bg-neutral-50'
-                  : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
-                }`}
-              onClick={() => setIsMenuOpen(false)}
-            >
-              {link.label}
-            </Link>
-          ))}
-        </div>
-      </div>
-    </nav>
+      </nav>
+      
+      {/* Spacer to prevent content from going under fixed nav */}
+      <div className="h-16" />
+    </>
   );
 };
 
