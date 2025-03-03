@@ -101,13 +101,19 @@ export default function TestimonialsPage() {
               <p className="text-neutral-600 mb-6">{testimonial.content}</p>
               <div className="flex justify-between items-end">
                 <div className="flex items-center gap-4">
-                  <div className="relative w-12 h-12 rounded-full overflow-hidden">
+                  <div className="relative w-12 h-12 rounded-full overflow-hidden bg-neutral-100 animate-pulse">
                     <Image
                       src="/images/general/image.png"
                       alt={testimonial.author}
                       fill
-                      className="object-cover"
+                      className="object-cover transition-opacity duration-300 opacity-0 group-loaded:opacity-100"
                       sizes="48px"
+                      loading="lazy"
+                      onLoadingComplete={(image: HTMLImageElement) => {
+                        image.classList.remove('opacity-0');
+                        image.classList.add('opacity-100');
+                        image.parentElement?.classList.remove('animate-pulse');
+                      }}
                     />
                   </div>
                   <div>
