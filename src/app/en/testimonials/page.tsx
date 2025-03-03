@@ -109,10 +109,10 @@ export default function TestimonialsPage() {
                       className="object-cover transition-opacity duration-300 opacity-0 group-loaded:opacity-100"
                       sizes="48px"
                       loading="lazy"
-                      onLoadingComplete={(e) => {
-                        e.currentTarget.classList.remove('opacity-0');
-                        e.currentTarget.classList.add('opacity-100');
-                        e.currentTarget.parentElement?.classList.remove('animate-pulse');
+                      onLoadingComplete={(image: HTMLImageElement) => {
+                        image.classList.remove('opacity-0');
+                        image.classList.add('opacity-100');
+                        image.parentElement?.classList.remove('animate-pulse');
                       }}
                     />
                   </div>
