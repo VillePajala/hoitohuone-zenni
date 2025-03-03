@@ -63,14 +63,14 @@ export default function BookingPage() {
 
       {/* Services Section */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-12 fade-in">
+        <div className="text-center max-w-3xl mx-auto fade-in">
           <h2 className="text-3xl font-serif mb-4">Available Services</h2>
           <p className="text-neutral-600 max-w-2xl mx-auto">
             Select a service to proceed with booking. All treatments are
             personalized to meet your individual needs.
           </p>
         </div>
-        <div className="grid md:grid-cols-3 gap-8 fade-in">
+        <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto fade-in">
           {services.map((service, index) => (
             <div
               key={index}

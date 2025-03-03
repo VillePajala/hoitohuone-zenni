@@ -71,6 +71,20 @@ export default function BookingPage() {
             <p className="text-neutral-600">info@hoitohuonezenni.fi</p>
           </div>
         </div>
+
+        {/* Services Section */}
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center max-w-3xl mx-auto fade-in">
+            <h2 className="text-3xl font-serif mb-4">Saatavilla olevat palvelut</h2>
+            <p className="text-neutral-600 max-w-2xl mx-auto">
+              Valitse haluamasi hoito varataksesi ajan. Kaikki hoidot räätälöidään
+              yksilöllisten tarpeidesi mukaan.
+            </p>
+          </div>
+          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto fade-in">
+            {/* Add your service cards here */}
+          </div>
+        </section>
       </div>
     </div>
   );

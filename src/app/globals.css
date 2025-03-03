@@ -22,17 +22,42 @@
 
 /* Base styles */
 body {
-  @apply antialiased;
-  font-family: Arial, Helvetica, sans-serif;
+  @apply antialiased text-neutral-800;
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.75;
 }
 
 /* Typography */
 h1, h2, h3, h4, h5, h6 {
-  @apply font-serif;
+  @apply font-serif text-neutral-900 tracking-tight;
+  line-height: 1.2;
 }
 
 .font-serif {
   font-family: var(--font-serif);
+}
+
+/* Content styles */
+article p {
+  @apply mb-6;
+}
+
+article ul, article ol {
+  @apply mb-6 pl-6;
+}
+
+article ul {
+  @apply list-disc;
+}
+
+article ol {
+  @apply list-decimal;
+}
+
+/* Links */
+a {
+  @apply transition-colors duration-200;
 }
 
 /* Smooth scroll behavior */
@@ -68,6 +93,7 @@ html {
     --chart-5: 27 87% 67%;
     --radius: 0.5rem;
   }
+
   .dark {
     --background: 0 0% 3.9%;
     --foreground: 0 0% 98%;
@@ -93,9 +119,6 @@ html {
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
-  }
-  html {
-    scroll-behavior: smooth;
   }
 }
 

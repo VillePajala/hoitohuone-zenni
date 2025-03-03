@@ -113,14 +113,14 @@ export default function HomePage() {
 
       {/* Services Section */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-12 fade-in">
+        <div className="text-center max-w-3xl mx-auto fade-in">
           <h2 className="text-3xl font-serif mb-4">Palvelumme</h2>
           <p className="text-neutral-600 max-w-2xl mx-auto">
             Tutustu tarjoamiimme hoitopalveluihin. Jokainen hoito räätälöidään
             yksilöllisesti sinun tarpeisiisi.
           </p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto fade-in">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl mx-auto fade-in">
           {featuredServices.map((service, index) => (
             <div
               key={index}

@@ -30,6 +30,7 @@ const Navigation = () => {
       { href: '/fi/kokemukset', label: 'Kokemukset' },
       { href: '/fi/ukk', label: 'UKK' },
       { href: '/fi/yhteystiedot', label: 'Yhteystiedot' },
+      { href: '/fi/ajanvaraus', label: 'Ajanvaraus' },
     ],
     en: [
       { href: '/en', label: 'Home' },
@@ -38,6 +39,7 @@ const Navigation = () => {
       { href: '/en/testimonials', label: 'Testimonials' },
       { href: '/en/faq', label: 'FAQ' },
       { href: '/en/contact', label: 'Contact' },
+      { href: '/en/booking', label: 'Book Now' },
     ],
   };
 
@@ -57,37 +59,67 @@ const Navigation = () => {
 
       <nav className="fixed top-0 w-full bg-white/90 backdrop-blur-sm z-50 border-b border-neutral-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex-shrink-0 flex items-center">
+          {/* Desktop Two-Row Layout */}
+          <div className="hidden sm:block">
+            {/* Top Row - Brand and Language */}
+            <div className="h-16 flex items-center justify-between">
+              <div className="flex-1" /> {/* Spacer for centering */}
               <Link 
                 href={`/${locale}`} 
-                className="text-xl font-serif"
-                onClick={() => setIsMenuOpen(false)}
+                className="text-2xl font-serif text-center"
               >
                 Hoitohuone Zenni
               </Link>
+              <div className="flex-1 flex justify-end">
+                <LanguageSwitcher />
+              </div>
             </div>
+            
+            {/* Bottom Row - Navigation */}
+            <div className="h-12 flex justify-center items-center space-x-4">
+              {links.map((link) => {
+                const isBookingLink = link.href.includes('/ajanvaraus') || link.href.includes('/booking');
+                
+                if (isBookingLink) {
+                  return (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      className="px-4 py-2 bg-neutral-900 text-white rounded-md text-sm font-medium 
+                        hover:bg-neutral-800 transition-all duration-200"
+                    >
+                      {link.label}
+                    </Link>
+                  );
+                }
 
-            {/* Desktop Navigation */}
-            <div className="hidden sm:flex sm:items-center sm:space-x-6">
-              {links.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-all duration-200
-                    ${isActive(link.href)
-                      ? 'text-neutral-900 bg-neutral-50'
-                      : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
-                    }`}
-                >
-                  {link.label}
-                </Link>
-              ))}
-              <LanguageSwitcher />
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className={`px-3 py-2 rounded-md text-sm font-medium transition-all duration-200
+                      ${isActive(link.href)
+                        ? 'text-neutral-900 bg-neutral-50'
+                        : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
+                      }`}
+                  >
+                    {link.label}
+                  </Link>
+                );
+              })}
             </div>
+          </div>
 
-            {/* Mobile menu button */}
-            <div className="sm:hidden flex items-center space-x-4">
+          {/* Mobile Single-Row Layout */}
+          <div className="sm:hidden flex justify-between h-16 items-center">
+            <Link 
+              href={`/${locale}`} 
+              className="text-xl font-serif"
+              onClick={() => setIsMenuOpen(false)}
+            >
+              Hoitohuone Zenni
+            </Link>
+            <div className="flex items-center space-x-4">
               <LanguageSwitcher />
               <button
                 type="button"
@@ -119,26 +151,32 @@ const Navigation = () => {
           }`}
         >
           <div className="px-4 pt-2 pb-3 space-y-1">
-            {links.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={`block px-4 py-3 rounded-md text-base font-medium transition-colors
-                  ${isActive(link.href)
-                    ? 'text-neutral-900 bg-neutral-50'
-                    : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
-                  }`}
-                onClick={() => setIsMenuOpen(false)}
-              >
-                {link.label}
-              </Link>
-            ))}
+            {links.map((link) => {
+              const isBookingLink = link.href.includes('/ajanvaraus') || link.href.includes('/booking');
+              
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={`block px-4 py-3 rounded-md text-base font-medium transition-colors
+                    ${isBookingLink 
+                      ? 'bg-neutral-900 text-white hover:bg-neutral-800'
+                      : isActive(link.href)
+                        ? 'text-neutral-900 bg-neutral-50'
+                        : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
+                    }`}
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
           </div>
         </div>
       </nav>
       
-      {/* Spacer to prevent content from going under fixed nav */}
-      <div className="h-16" />
+      {/* Adjust spacer height for two-row desktop layout */}
+      <div className="h-16 sm:h-28" />
     </>
   );
 };
