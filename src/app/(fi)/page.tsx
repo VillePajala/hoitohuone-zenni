@@ -5,7 +5,6 @@ import Link from 'next/link';
 import Image from 'next/image';
 
 export default function HomePage() {
-  // Simple fade-in animation on scroll
   useEffect(() => {
     const observerOptions = {
       root: null,
@@ -26,11 +25,10 @@ export default function HomePage() {
     return () => observer.disconnect();
   }, []);
 
-  // Featured services data
   const featuredServices = [
     {
       title: 'Energiahoito',
-      description: 'Tasapainota kehon energioita ja tue hyvinvointiasi.',
+      description: 'Tasapainota kehosi energioita ja tue hyvinvointiasi.',
       icon: (
         <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path
@@ -43,7 +41,7 @@ export default function HomePage() {
       ),
     },
     {
-      title: 'Reikihoito',
+      title: 'Reiki-hoito',
       description: 'Koe perinteisen japanilaisen energiahoidon voima.',
       icon: (
         <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -58,7 +56,6 @@ export default function HomePage() {
     },
   ];
 
-  // Featured testimonial
   const featuredTestimonial = {
     content:
       'Energiahoidot ovat auttaneet minua merkittävästi stressin hallinnassa. Jokaisen käynnin jälkeen olen rentoutuneempi ja energisempi.',
@@ -66,7 +63,6 @@ export default function HomePage() {
     title: 'Säännöllinen asiakas',
   };
 
-  // Featured FAQs
   const featuredFaqs = [
     {
       question: 'Mitä energiahoito on?',
@@ -100,13 +96,13 @@ export default function HomePage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center fade-in">
             <Link
-              href="/palvelut"
+              href="/fi/palvelut"
               className="inline-block bg-neutral-900 text-white px-8 py-4 rounded-md hover:bg-neutral-800 transition-colors"
             >
               Tutustu palveluihin
             </Link>
             <Link
-              href="/ajanvaraus"
+              href="/fi/ajanvaraus"
               className="inline-block bg-white text-neutral-900 px-8 py-4 rounded-md border border-neutral-200 hover:bg-neutral-50 transition-colors"
             >
               Varaa aika
@@ -134,7 +130,7 @@ export default function HomePage() {
               <h3 className="text-xl font-serif mb-2">{service.title}</h3>
               <p className="text-neutral-600 mb-4">{service.description}</p>
               <Link
-                href="/palvelut"
+                href="/fi/palvelut"
                 className="text-neutral-900 font-medium hover:text-neutral-600 transition-colors"
               >
                 Lue lisää →
@@ -154,7 +150,7 @@ export default function HomePage() {
               sinua voimaan paremmin.
             </p>
             <Link
-              href="/ajanvaraus"
+              href="/fi/ajanvaraus"
               className="inline-block bg-neutral-900 text-white px-8 py-4 rounded-md hover:bg-neutral-800 transition-colors"
             >
               Siirry ajanvaraukseen
@@ -187,7 +183,7 @@ export default function HomePage() {
           </blockquote>
           <div className="mt-12">
             <Link
-              href="/kokemukset"
+              href="/fi/kokemukset"
               className="text-neutral-900 font-medium hover:text-neutral-600 transition-colors"
             >
               Lue lisää kokemuksia →
@@ -219,7 +215,7 @@ export default function HomePage() {
             </div>
             <div className="text-center mt-8">
               <Link
-                href="/ukk"
+                href="/fi/ukk"
                 className="text-neutral-900 font-medium hover:text-neutral-600 transition-colors"
               >
                 Katso kaikki UKK →

@@ -21,11 +21,15 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
+  params,
 }: {
   children: React.ReactNode;
+  params: { lang: string };
 }) {
+  const lang = params.lang || 'fi';
+
   return (
-    <html lang="fi" className={`${inter.variable} ${playfair.variable}`}>
+    <html lang={lang} className={`${inter.variable} ${playfair.variable}`}>
       <body className="min-h-screen flex flex-col">
         <Navigation />
         <main className="flex-grow pt-16">
