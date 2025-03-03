@@ -76,13 +76,19 @@ export default function ServicesContent({
             >
               <div className="grid md:grid-cols-2 gap-8 p-8">
                 <div className="space-y-4">
-                  <div className="relative w-full h-48 rounded-lg overflow-hidden mb-6">
+                  <div className="relative w-full h-48 rounded-lg overflow-hidden mb-6 bg-neutral-100 animate-pulse">
                     <Image
                       src="/images/general/image.png"
                       alt={service.title}
                       fill
-                      className="object-cover"
+                      className="object-cover transition-opacity duration-300 opacity-0 group-loaded:opacity-100"
                       sizes="(max-width: 768px) 100vw, 50vw"
+                      loading="lazy"
+                      onLoadingComplete={(image: HTMLImageElement) => {
+                        image.classList.remove('opacity-0');
+                        image.classList.add('opacity-100');
+                        image.parentElement?.classList.remove('animate-pulse');
+                      }}
                     />
                   </div>
                   <SectionTitle>{service.title}</SectionTitle>
