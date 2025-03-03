@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import Section from './layout/Section';
 import { PageTitle, Text, SectionTitle, ContentWrapper } from './typography';
 
@@ -75,6 +76,15 @@ export default function ServicesContent({
             >
               <div className="grid md:grid-cols-2 gap-8 p-8">
                 <div className="space-y-4">
+                  <div className="relative w-full h-48 rounded-lg overflow-hidden mb-6">
+                    <Image
+                      src="/images/general/image.png"
+                      alt={service.title}
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 768px) 100vw, 50vw"
+                    />
+                  </div>
                   <SectionTitle>{service.title}</SectionTitle>
                   <Text>{service.description}</Text>
                   <div className="flex gap-4 text-sm">

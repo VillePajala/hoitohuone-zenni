@@ -85,7 +85,14 @@ export default function HomePage() {
       {/* Hero Section */}
       <section className="relative h-[90vh] min-h-[600px] flex items-center justify-center bg-neutral-50">
         <div className="absolute inset-0 overflow-hidden">
-          {/* Placeholder for hero image */}
+          <Image
+            src="/images/general/image.png"
+            alt="Hoitohuone Zenni healing environment"
+            fill
+            className="object-cover"
+            priority
+            sizes="100vw"
+          />
           <div className="absolute inset-0 bg-gradient-to-b from-white/50 to-white/95" />
         </div>
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
