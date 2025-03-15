@@ -115,6 +115,11 @@ const Footer = () => {
           <p className="text-center text-neutral-600 text-sm">
             © {currentYear} Hoitohuone Zenni. Kaikki oikeudet pidätetään.
           </p>
+          <div className="mt-2 text-center text-neutral-500 text-xs">
+            <Link href="/admin/login" className="hover:text-neutral-700 transition-colors">
+              Admin
+            </Link>
+          </div>
         </div>
       </div>
     </footer>
