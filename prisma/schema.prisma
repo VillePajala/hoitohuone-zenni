@@ -8,19 +8,27 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// For local development with SQLite
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider = "sqlite"
+  url      = "file:./dev.db"
 }
+
+// For production with Supabase PostgreSQL (uncomment when deploying)
+// datasource db {
+//   provider = "postgresql"
+//   url      = env("DATABASE_URL")
+//   directUrl = env("DIRECT_URL")
+// }
 
 model Service {
   id          String    @id @default(cuid())
   name        String
   nameEn      String    // English name
   nameFi      String    // Finnish name
-  description String    @db.Text
-  descriptionEn String  @db.Text // English description
-  descriptionFi String  @db.Text // Finnish description
+  description String    
+  descriptionEn String  // English description
+  descriptionFi String  // Finnish description
   duration    Int       // Duration in minutes
   price       Float
   currency    String    @default("EUR")
@@ -41,7 +49,7 @@ model Booking {
   startTime       DateTime // Start time
   endTime         DateTime // End time
   status          String   // "confirmed", "cancelled", "completed"
-  notes           String?  @db.Text
+  notes           String?  
   language        String   @default("fi") // "fi" or "en"
   cancellationId  String?  @unique // Unique ID for cancellation link
   createdAt       DateTime @default(now())
@@ -61,7 +69,7 @@ model Availability {
 model BlockedDate {
   id          String   @id @default(cuid())
   date        DateTime // Full day block
-  reason      String?  @db.Text
+  reason      String?  
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
