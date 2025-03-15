@@ -120,7 +120,7 @@ export default function ServicesContent({
                     )}</Text>
                     <div className="flex flex-col gap-3">
                       <Link
-                        href={`/${locale}/ajanvaraus`}
+                        href={locale === 'fi' ? `/fi/ajanvaraus` : `/en/booking`}
                         className="inline-block bg-neutral-900 text-white text-center px-6 py-3 rounded-md hover:bg-neutral-800 transition-colors"
                       >
                         {translations.bookNow}
