@@ -1,0 +1,223 @@
+# Hoitohuone Zenni - Booking System Implementation Plan
+
+## Overview
+This document outlines the comprehensive plan for implementing the booking system for Hoitohuone Zenni. The booking system will allow customers to schedule appointments for various energy healing services offered by the business. It will be implemented using Next.js for the frontend, Prisma ORM for database interactions, and Supabase PostgreSQL as the database provider.
+
+## Architecture & Data Flow
+
+### Architecture Components
+1. **Frontend**: Next.js React components for the user interface
+2. **API Layer**: Next.js API routes for handling requests
+3. **Data Access Layer**: Prisma ORM for database operations
+4. **Database**: Supabase PostgreSQL for data storage
+
+### Data Flow
+1. **User selects service** → Frontend displays available time slots
+2. **User selects time slot** → Frontend validates selection
+3. **User enters personal information** → Frontend validates input
+4. **User confirms booking** → API creates booking in database
+5. **System confirms booking** → Email notifications sent to user and admin
+6. **Admin views bookings** → Admin dashboard displays all bookings
+
+## Database Schema
+
+### Services Table
+```prisma
+model Service {
+  id          String    @id @default(cuid())
+  name        String
+  nameEn      String    // English name
+  nameFi      String    // Finnish name
+  description String    @db.Text
+  descriptionEn String  @db.Text // English description
+  descriptionFi String  @db.Text // Finnish description
+  duration    Int       // Duration in minutes
+  price       Float
+  currency    String    @default("EUR")
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  bookings    Booking[]
+}
+```
+
+### Bookings Table
+```prisma
+model Booking {
+  id              String   @id @default(cuid())
+  serviceId       String
+  service         Service  @relation(fields: [serviceId], references: [id])
+  customerName    String
+  customerEmail   String
+  customerPhone   String?
+  date            DateTime // Date of appointment
+  startTime       DateTime // Start time
+  endTime         DateTime // End time
+  status          String   // "confirmed", "cancelled", "completed"
+  notes           String?  @db.Text
+  language        String   @default("fi") // "fi" or "en"
+  cancellationId  String?  @unique // Unique ID for cancellation link
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+```
+
+### Availability Table
+```prisma
+model Availability {
+  id          String   @id @default(cuid())
+  dayOfWeek   Int      // 0-6 for Sunday-Saturday
+  startTime   String   // Format: "HH:MM" (24-hour format)
+  endTime     String   // Format: "HH:MM" (24-hour format)
+  isAvailable Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+```
+
+### BlockedDates Table
+```prisma
+model BlockedDate {
+  id          String   @id @default(cuid())
+  date        DateTime // Full day block
+  reason      String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+```
+
+## API Endpoints
+
+### Service Endpoints
+- `GET /api/services` - Get all active services
+- `GET /api/services/:id` - Get a specific service by ID
+
+### Availability Endpoints
+- `GET /api/availability` - Get all availability settings
+- `GET /api/availability/:date` - Get available time slots for a specific date
+- `POST /api/availability` - Create/update availability settings (admin only)
+- `DELETE /api/availability/:id` - Delete availability setting (admin only)
+
+### Booking Endpoints
+- `POST /api/bookings` - Create a new booking
+- `GET /api/bookings/:id` - Get booking details by ID
+- `GET /api/bookings` - Get all bookings (admin only)
+- `PATCH /api/bookings/:id` - Update booking status (admin only)
+- `DELETE /api/bookings/:id` - Cancel a booking
+
+### Admin Endpoints
+- `POST /api/admin/blocked-dates` - Block a date (admin only)
+- `DELETE /api/admin/blocked-dates/:id` - Unblock a date (admin only)
+
+## Frontend Components
+
+### User-Facing Components
+
+#### BookingFlow
+High-level component that manages the entire booking process flow and state.
+
+#### ServiceSelection
+- Displays all available services
+- Allows filtering and selection
+- Shows service details (description, duration, price)
+
+#### DatePicker
+- Calendar component for selecting appointment date
+- Highlights available dates
+- Blocks unavailable dates
+
+#### TimeSlotSelection
+- Displays available time slots for selected date and service
+- Updates dynamically based on service duration
+- Visually indicates available/unavailable times
+
+#### CustomerForm
+- Collects customer information (name, email, phone)
+- Implements validation
+- Includes privacy policy acceptance
+
+#### BookingConfirmation
+- Shows booking summary
+- Provides confirmation reference
+- Includes cancellation instructions
+
+### Admin Components
+
+#### AdminBookingDashboard
+- Lists all bookings with filtering options
+- Provides booking management functions
+- Shows booking statistics
+
+#### AvailabilityManager
+- Interface for setting regular availability
+- Allows blocking specific dates or time periods
+- Provides calendar visualization of availability
+
+## Implementation Steps
+
+### Phase 1: Foundation Setup (Week 1)
+1. Install and configure Prisma
+2. Set up Supabase PostgreSQL database
+3. Create initial database schema
+4. Implement basic API endpoints
+5. Create booking page structure
+
+### Phase 2: Core Booking Functionality (Week 2)
+1. Implement service listing and selection
+2. Create date picker component
+3. Develop time slot availability calculations
+4. Build customer information form
+5. Implement booking creation flow
+
+### Phase 3: Admin & Confirmation Features (Week 3)
+1. Create booking confirmation screens
+2. Implement email notification system
+3. Develop admin dashboard for bookings
+4. Add availability management interface
+5. Implement booking cancellation functionality
+
+### Phase 4: Refinement & Testing (Week 4)
+1. Conduct end-to-end testing of booking flow
+2. Implement error handling and edge cases
+3. Optimize performance
+4. Add analytics tracking
+5. Implement final UI polish
+
+## Technical Considerations
+
+### Internationalization
+- All user-facing components will support both Finnish and English
+- Date and time formatting will respect locale settings
+- Error messages and notifications will be internationalized
+
+### Security
+- Implement CSRF protection for all API endpoints
+- Validate all user inputs on both client and server
+- Secure admin routes with proper authentication
+- Use environment variables for sensitive information
+
+### Performance
+- Implement proper loading states
+- Optimize database queries
+- Use caching where appropriate
+- Ensure responsive design for all screen sizes
+
+### Testing Strategy
+1. **Unit Testing**: Test individual components and functions
+2. **Integration Testing**: Test API endpoints and database interactions
+3. **E2E Testing**: Test complete booking flow
+4. **User Testing**: Conduct user testing with real users
+
+## Deployment Strategy
+1. **Development**: Local development with local PostgreSQL database
+2. **Staging**: Deploy to staging environment with test Supabase database
+3. **Production**: Deploy to production environment with production Supabase database
+
+## Monitoring & Maintenance
+1. Implement error logging and monitoring
+2. Set up database backup strategy
+3. Create maintenance documentation
+4. Plan for future enhancements
+
+## Summary
+This booking system implementation plan provides a comprehensive roadmap for building a robust, user-friendly booking system for Hoitohuone Zenni. By following this plan, we will create a booking system that meets the business requirements while providing an excellent user experience for customers. 
