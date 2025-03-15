@@ -1,7 +1,7 @@
 # Software Requirements Specification (SRS)
 
 ## **1. System Design**
-The system is a **multi-page website** designed to introduce an energy healer’s services, provide essential information, and facilitate appointment booking. The system is structured to support **future enhancements** such as a custom booking system and blog functionality.
+The system is a **multi-page website** designed to introduce an energy healer's services, provide essential information, and facilitate appointment booking. The system is structured to support **future enhancements** such as a custom booking system and blog functionality.
 
 ## **2. Architecture Pattern**
 - The website follows a **Single Page Application (SPA)** approach.
@@ -26,7 +26,9 @@ The system is a **multi-page website** designed to introduce an energy healer’
 
 ### **Backend**
 - **Serverless/microservices architecture** hosted on **Vercel** for seamless deployment and scaling.
-- **Database (Phase 2):** PostgreSQL / MongoDB (for booking system and blog)
+- **Database (Phase 2):** Supabase PostgreSQL (for booking system and blog)
+  - All database interactions will be handled through Prisma ORM
+  - Supabase will be used only as a PostgreSQL database provider (not using Supabase client)
 - **Authentication:** OAuth 2.0 or JWT-based authentication (if required for admin features)
 
 ## **6. Authentication Process (Phase 2)**
@@ -58,6 +60,8 @@ The system is a **multi-page website** designed to introduce an energy healer’
 - **Services Table:** Holds service descriptions.
 - **Bookings Table:** Stores user appointment details (if custom booking is implemented).
 - **Blog Table:** Stores blog posts and timestamps.
+
+**For comprehensive booking system database schema and API specifications, refer to the [detailed booking system implementation plan](.documentation/hoitohuone-zenni-booking-system-plan.md).**
 
 ---
 
