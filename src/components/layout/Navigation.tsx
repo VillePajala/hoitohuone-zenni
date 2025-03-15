@@ -78,7 +78,7 @@ const Navigation = () => {
             {/* Bottom Row - Navigation */}
             <div className="h-12 flex justify-center items-center space-x-4">
               {links.map((link) => {
-                const isBookingLink = link.href.includes('/ajanvaraus') || link.href.includes('/booking');
+                const isBookingLink = link.href.includes('/booking');
                 
                 if (isBookingLink) {
                   return (
@@ -152,7 +152,7 @@ const Navigation = () => {
         >
           <div className="px-4 pt-2 pb-3 space-y-1">
             {links.map((link) => {
-              const isBookingLink = link.href.includes('/ajanvaraus') || link.href.includes('/booking');
+              const isBookingLink = link.href.includes('/booking');
               
               return (
                 <Link

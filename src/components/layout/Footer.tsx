@@ -30,7 +30,7 @@ const Footer = () => {
             <ul className="space-y-2">
               <li>
                 <Link
-                  href="/palvelut"
+                  href="/fi/palvelut"
                   className="text-neutral-600 hover:text-neutral-900 transition-colors"
                 >
                   Palvelut
@@ -38,7 +38,7 @@ const Footer = () => {
               </li>
               <li>
                 <Link
-                  href="/ajanvaraus"
+                  href="/fi/ajanvaraus"
                   className="text-neutral-600 hover:text-neutral-900 transition-colors"
                 >
                   Ajanvaraus
@@ -46,7 +46,7 @@ const Footer = () => {
               </li>
               <li>
                 <Link
-                  href="/ukk"
+                  href="/fi/ukk"
                   className="text-neutral-600 hover:text-neutral-900 transition-colors"
                 >
                   UKK
@@ -54,7 +54,7 @@ const Footer = () => {
               </li>
               <li>
                 <Link
-                  href="/yhteystiedot"
+                  href="/fi/yhteystiedot"
                   className="text-neutral-600 hover:text-neutral-900 transition-colors"
                 >
                   Yhteystiedot
