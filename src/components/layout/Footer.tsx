@@ -69,9 +69,11 @@ const Footer = () => {
             <div className="flex space-x-4 mb-4">
               {/* Placeholder social media links */}
               <a
-                href="#"
+                href="https://m.facebook.com/hoitohuone.zenni/?profile_tab_item_selected=photos"
                 className="text-neutral-600 hover:text-neutral-900 transition-colors"
                 aria-label="Facebook"
+                target="_blank"
+                rel="noopener noreferrer"
               >
                 <svg
                   className="h-6 w-6"
@@ -86,9 +88,11 @@ const Footer = () => {
                 </svg>
               </a>
               <a
-                href="#"
+                href="https://www.instagram.com/hoitohuonezenni/"
                 className="text-neutral-600 hover:text-neutral-900 transition-colors"
                 aria-label="Instagram"
+                target="_blank"
+                rel="noopener noreferrer"
               >
                 <svg
                   className="h-6 w-6"
