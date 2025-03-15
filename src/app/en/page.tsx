@@ -92,7 +92,8 @@ export default function HomePage() {
             className="object-cover transition-opacity duration-300 opacity-0 group-loaded:opacity-100"
             priority
             sizes="100vw"
-            onLoadingComplete={(image: HTMLImageElement) => {
+            onLoad={(event) => {
+              const image = event.currentTarget as HTMLImageElement;
               image.classList.remove('opacity-0');
               image.classList.add('opacity-100');
               image.parentElement?.classList.remove('animate-pulse');

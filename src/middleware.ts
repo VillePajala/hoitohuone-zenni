@@ -5,19 +5,8 @@ import type { NextRequest } from 'next/server';
 const locales = ['en', 'fi'];
 const defaultLocale = 'fi';
 
+// Always use the default locale (Finnish) regardless of browser preferences
 function getLocale(request: NextRequest) {
-  // Get the preferred locale from the accept-language header
-  const acceptLanguage = request.headers.get('accept-language');
-  if (acceptLanguage) {
-    const preferredLocale = acceptLanguage
-      .split(',')[0]
-      .trim()
-      .split('-')[0]
-      .toLowerCase();
-    if (locales.includes(preferredLocale)) {
-      return preferredLocale;
-    }
-  }
   return defaultLocale;
 }
 
@@ -30,13 +19,10 @@ export function middleware(request: NextRequest) {
   );
 
   if (!pathnameHasLocale) {
-    // Get the preferred locale
-    const locale = getLocale(request);
-
-    // Redirect to the same pathname with locale prefix
+    // Always redirect to Finnish for root path and paths without locale
     return NextResponse.redirect(
       new URL(
-        `/${locale}${pathname === '/' ? '' : pathname}`,
+        `/${defaultLocale}${pathname === '/' ? '' : pathname}`,
         request.url
       )
     );
