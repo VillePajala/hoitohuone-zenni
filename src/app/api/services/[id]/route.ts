@@ -7,7 +7,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const serviceId = params.id;
+    const { id: serviceId } = params;
 
     const service = await prisma.service.findUnique({
       where: {
