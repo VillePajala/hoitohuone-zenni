@@ -1,0 +1,67 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Service {
+  id          String    @id @default(cuid())
+  name        String
+  nameEn      String    // English name
+  nameFi      String    // Finnish name
+  description String    @db.Text
+  descriptionEn String  @db.Text // English description
+  descriptionFi String  @db.Text // Finnish description
+  duration    Int       // Duration in minutes
+  price       Float
+  currency    String    @default("EUR")
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  bookings    Booking[]
+}
+
+model Booking {
+  id              String   @id @default(cuid())
+  serviceId       String
+  service         Service  @relation(fields: [serviceId], references: [id])
+  customerName    String
+  customerEmail   String
+  customerPhone   String?
+  date            DateTime // Date of appointment
+  startTime       DateTime // Start time
+  endTime         DateTime // End time
+  status          String   // "confirmed", "cancelled", "completed"
+  notes           String?  @db.Text
+  language        String   @default("fi") // "fi" or "en"
+  cancellationId  String?  @unique // Unique ID for cancellation link
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Availability {
+  id          String   @id @default(cuid())
+  dayOfWeek   Int      // 0-6 for Sunday-Saturday
+  startTime   String   // Format: "HH:MM" (24-hour format)
+  endTime     String   // Format: "HH:MM" (24-hour format)
+  isAvailable Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model BlockedDate {
+  id          String   @id @default(cuid())
+  date        DateTime // Full day block
+  reason      String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
