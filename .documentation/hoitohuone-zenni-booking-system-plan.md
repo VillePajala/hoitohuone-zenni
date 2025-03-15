@@ -24,20 +24,28 @@ This document outlines the comprehensive plan for implementing the booking syste
 3. **API Routes**
    - POST /api/bookings endpoint to create bookings ✓
    - Validation and error handling for booking submissions ✓
+   - POST /api/bookings/cancel endpoint to cancel bookings ✓
 
 4. **Advanced Features**
    - Email notification system ✓
      - Confirmation emails to customers with booking details ✓
      - Notification emails to administrators for new bookings ✓
      - Multi-language support (Finnish/English) in email templates ✓
+     - Gmail SMTP configuration with App Password authentication ✓
+     - Testing tools for email delivery verification ✓
+   - Booking cancellation functionality ✓
+     - Cancellation pages in Finnish and English ✓
+     - Cancellation API endpoints ✓
+     - Email notifications for cancellations ✓
+     - Booking status updates ✓
+
+5. **Additional Features & Integration**
+   - Social media links integration (Instagram, Facebook) ✓
 
 ### In Progress
 1. **Admin Interface**
    - Development of admin booking management dashboard
    - Availability management interface
-
-2. **Advanced Features**
-   - Booking cancellation functionality
 
 ### Not Started
 1. **Testing and Refinement**
@@ -50,11 +58,14 @@ This document outlines the comprehensive plan for implementing the booking syste
    - Setup of production database
 
 ## Next Steps
-1. Develop booking cancellation functionality
-2. Create admin dashboard for booking management
-3. Implement availability management interface
-4. Complete testing and refinement phase
-5. Deploy to production
+1. **Admin Dashboard Development (Current Priority)**
+   - Create admin login/authentication
+   - Implement booking management interface
+   - Add availability management capabilities
+
+2. Implement availability management interface
+3. Complete testing and refinement phase
+4. Deploy to production
 
 ## Architecture & Data Flow
 
