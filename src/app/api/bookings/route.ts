@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { randomUUID } from 'crypto';
+import { sendBookingConfirmationEmail, sendAdminNotificationEmail } from '@/lib/emailService';
+import { cookies } from 'next/headers';
 
 // POST /api/bookings - Create a new booking
 export async function POST(request: Request) {
@@ -128,13 +130,59 @@ export async function POST(request: Request) {
       }
     });
 
-    // Here we would typically send confirmation emails
-    // This will be implemented in a separate step
+    // Get cookies from request headers directly
+    let testCustomerEmail;
+    let testAdminEmail;
+    
+    try {
+      // Try to extract cookie values manually if the Next.js API is having issues
+      const cookieHeader = request.headers.get('cookie') || '';
+      const cookiePairs = cookieHeader.split(';').map(pair => pair.trim());
+      
+      for (const pair of cookiePairs) {
+        const [name, value] = pair.split('=');
+        if (name === 'test_customer_email') {
+          testCustomerEmail = decodeURIComponent(value);
+        } else if (name === 'test_admin_email') {
+          testAdminEmail = decodeURIComponent(value);
+        }
+      }
+    } catch (cookieError) {
+      console.error('Error parsing cookies:', cookieError);
+    }
+    
+    // Add email overrides if cookies exist
+    const bookingWithOverrides = {
+      ...booking,
+      _testEmailOverride: testCustomerEmail,
+      _testAdminEmailOverride: testAdminEmail
+    };
+
+    // Send confirmation emails
+    try {
+      // Send confirmation email to customer
+      await sendBookingConfirmationEmail(bookingWithOverrides, service);
+      
+      // Send notification email to admin
+      await sendAdminNotificationEmail(bookingWithOverrides, service);
+      
+      console.log('Emails sent successfully');
+      if (testCustomerEmail) {
+        console.log(`Used test customer email: ${testCustomerEmail}`);
+      }
+      if (testAdminEmail) {
+        console.log(`Used test admin email: ${testAdminEmail}`);
+      }
+    } catch (emailError) {
+      // Log the error but don't fail the booking creation
+      console.error('Error sending confirmation emails:', emailError);
+    }
 
     return NextResponse.json(
       { 
         booking,
-        message: 'Booking confirmed successfully' 
+        message: 'Booking confirmed successfully',
+        emailTestMode: !!(testCustomerEmail || testAdminEmail)
       }, 
       { status: 201 }
     );
