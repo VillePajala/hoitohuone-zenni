@@ -82,18 +82,7 @@ export default function RootLayout({
   const lang = params.lang || 'fi';
 
   return (
-    <ClerkProvider
-      redirectUrl="/admin/dashboard"
-      afterSignInUrl="/admin/dashboard"
-      afterSignUpUrl="/admin/dashboard"
-      signInUrl="/admin/sign-in"
-      signUpUrl="/admin/sign-up"
-      publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
-      appearance={{
-        baseTheme: undefined,
-        variables: { colorPrimary: '#4f46e5' },
-      }}
-    >
+    <ClerkProvider>
       <html lang={lang} className={`${inter.variable} ${playfair.variable}`}>
         <body className="min-h-screen flex flex-col">
           <AdminBar />

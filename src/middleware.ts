@@ -1,4 +1,4 @@
-import { clerkMiddleware } from "@clerk/nextjs/server";
+import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
@@ -45,28 +45,27 @@ const publicRoutes = [
   '/',
   ...locales.map(locale => `/${locale}`),
   '/admin/sign-in',
-  '/admin/login'
+  '/admin/sign-up'
 ];
 
-// Export the combined middleware
-export default clerkMiddleware((auth, req) => {
-  const pathname = req.nextUrl.pathname;
+// Create route matchers
+const isAdminRoute = createRouteMatcher(['/admin/(.*)', '/api/admin/(.*)']);
 
-  // Check if the current path is public
-  const isPublicRoute = publicRoutes.some(route => 
-    pathname.startsWith(route) || pathname === route
-  );
-
-  // Allow public routes
-  if (isPublicRoute) {
-    return NextResponse.next();
-  }
-
+// Export the middleware
+export default clerkMiddleware(async (auth, req) => {
   // Handle admin routes (both UI and API)
-  if (pathname.startsWith('/admin') || pathname.startsWith('/api/admin')) {
-    if (!auth.userId) {
-      // For API routes, return 401 instead of redirecting
-      if (pathname.startsWith('/api/admin')) {
+  if (isAdminRoute(req)) {
+    // Skip auth check for public admin routes
+    if (publicRoutes.some(route => req.nextUrl.pathname.startsWith(route))) {
+      return NextResponse.next();
+    }
+    
+    // Check if user is authenticated
+    try {
+      await auth.protect();
+    } catch {
+      // For API routes, return 401
+      if (req.nextUrl.pathname.startsWith('/api/admin')) {
         return NextResponse.json(
           { error: 'Unauthorized - Please sign in to access this resource' },
           { status: 401 }
@@ -74,7 +73,7 @@ export default clerkMiddleware((auth, req) => {
       }
       // For UI routes, redirect to sign-in
       const signInUrl = new URL('/admin/sign-in', req.url);
-      signInUrl.searchParams.set('redirect_url', pathname);
+      signInUrl.searchParams.set('redirect_url', req.nextUrl.pathname);
       return NextResponse.redirect(signInUrl);
     }
   }
