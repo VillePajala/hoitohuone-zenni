@@ -83,6 +83,7 @@ export default function RootLayout({
 
   return (
     <ClerkProvider
+      redirectUrl="/admin/dashboard"
       afterSignInUrl="/admin/dashboard"
       afterSignUpUrl="/admin/dashboard"
       signInUrl="/admin/sign-in"

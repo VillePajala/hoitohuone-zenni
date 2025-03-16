@@ -1,6 +1,6 @@
+import { clerkMiddleware } from "@clerk/nextjs/server";
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { clerkMiddleware, createClerkClient } from '@clerk/nextjs/server';
 
 // List of supported locales
 const locales = ['en', 'fi'];
@@ -33,56 +33,54 @@ function localeMiddleware(request: NextRequest) {
   return NextResponse.next();
 }
 
-// Export the clerk middleware with enhanced error handling
-export default clerkMiddleware((auth, request) => {
-  const { pathname } = new URL(request.url);
-  
-  // Public routes that don't need authentication
-  const publicRoutes = [
-    '/api/services',
-    '/api/availability',
-    '/api/bookings',
-    '/api/available-dates',
-    '/api/time-slots',
-    'favicon.ico',
-    '/_next',
-    '/',
-    ...locales.map(locale => `/${locale}`),
-  ];
+// Public routes that don't need authentication
+const publicRoutes = [
+  '/api/services', // Public services API
+  '/api/availability',
+  '/api/bookings',
+  '/api/available-dates',
+  '/api/time-slots',
+  'favicon.ico',
+  '/_next',
+  '/',
+  ...locales.map(locale => `/${locale}`),
+  '/admin/sign-in',
+  '/admin/login'
+];
+
+// Export the combined middleware
+export default clerkMiddleware((auth, req) => {
+  const pathname = req.nextUrl.pathname;
 
   // Check if the current path is public
   const isPublicRoute = publicRoutes.some(route => 
     pathname.startsWith(route) || pathname === route
   );
 
+  // Allow public routes
   if (isPublicRoute) {
     return NextResponse.next();
   }
 
-  // Handle admin routes
-  if (pathname.startsWith('/admin')) {
-    // Allow access to sign-in and login pages
-    if (pathname === '/admin/sign-in' || pathname === '/admin/login') {
-      return NextResponse.next();
-    }
-
-    try {
-      // Check authentication for other admin routes
-      if (!auth.userId) {
-        const signInUrl = new URL('/admin/sign-in', request.url);
-        signInUrl.searchParams.set('redirect_url', pathname);
-        return NextResponse.redirect(signInUrl);
+  // Handle admin routes (both UI and API)
+  if (pathname.startsWith('/admin') || pathname.startsWith('/api/admin')) {
+    if (!auth.userId) {
+      // For API routes, return 401 instead of redirecting
+      if (pathname.startsWith('/api/admin')) {
+        return NextResponse.json(
+          { error: 'Unauthorized - Please sign in to access this resource' },
+          { status: 401 }
+        );
       }
-      return NextResponse.next();
-    } catch (error) {
-      console.error('Clerk middleware error:', error);
-      // On error, redirect to sign-in
-      return NextResponse.redirect(new URL('/admin/sign-in', request.url));
+      // For UI routes, redirect to sign-in
+      const signInUrl = new URL('/admin/sign-in', req.url);
+      signInUrl.searchParams.set('redirect_url', pathname);
+      return NextResponse.redirect(signInUrl);
     }
   }
 
   // Apply locale middleware for non-admin routes
-  return localeMiddleware(request);
+  return localeMiddleware(req);
 });
 
 // Configure the middleware to run on specific paths
