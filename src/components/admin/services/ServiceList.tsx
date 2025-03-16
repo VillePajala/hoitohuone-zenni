@@ -37,10 +37,8 @@ export function ServiceList() {
     async function fetchServices() {
       try {
         setLoading(true);
-        const token = await getToken();
         const response = await fetch('/api/admin/services', {
           headers: {
-            'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           }
         });
@@ -62,7 +60,7 @@ export function ServiceList() {
     }
     
     fetchServices();
-  }, [getToken]);
+  }, []);
 
   const handleCreateService = () => {
     setEditingService(null);
@@ -76,12 +74,10 @@ export function ServiceList() {
 
   const handleToggleStatus = async (service: Service) => {
     try {
-      const token = await getToken();
       const response = await fetch(`/api/admin/services/${service.id}`, {
         method: 'PATCH',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ active: !service.active }),
       });
@@ -108,12 +104,10 @@ export function ServiceList() {
     }
 
     try {
-      const token = await getToken();
       const response = await fetch(`/api/admin/services/${id}`, {
         method: 'DELETE',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         }
       });
 

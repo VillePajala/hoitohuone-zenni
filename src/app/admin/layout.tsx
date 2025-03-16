@@ -1,48 +1,27 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { useState } from 'react';
+import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { LayoutDashboard, CalendarDays, Users, Settings, LogOut, Menu, X, Clock } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { useAuth, useUser, SignOutButton } from '@clerk/nextjs';
+import { useUser } from '@clerk/nextjs';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
 }
 
 export default function AdminLayout({ children }: AdminLayoutProps) {
-  const router = useRouter();
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  
-  // Use Clerk's useAuth hook to check if the user is authenticated
-  const { isLoaded, userId, isSignedIn } = useAuth();
   const { user } = useUser();
 
-  // Skip authentication check on the login, sign-in and sign-up pages
-  const isAuthPage = pathname === '/admin/login' || 
-                     pathname === '/admin/sign-in' || 
-                     pathname === '/admin/sign-up';
-
-  useEffect(() => {
-    // Wait for Clerk to load
-    if (!isLoaded) return;
-    
-    // Redirect to sign-in if not authenticated and not on an auth page
-    if (!isSignedIn && !isAuthPage) {
-      router.push('/admin/sign-in');
-    }
-  }, [isSignedIn, isAuthPage, router, isLoaded]);
-
   // Don't show admin layout on auth pages
+  const isAuthPage = pathname === '/admin/login' || 
+                    pathname === '/admin/sign-in' || 
+                    pathname === '/admin/sign-up';
+
   if (isAuthPage) {
     return <>{children}</>;
-  }
-  
-  // Show loading or children based on auth state
-  if (!isLoaded || !isSignedIn) {
-    return <div className="flex justify-center items-center min-h-screen">Loading...</div>;
   }
 
   return (
