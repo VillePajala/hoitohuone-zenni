@@ -37,7 +37,6 @@ export default function SignInPage() {
               }
             }}
             redirectUrl="/admin/dashboard"
-            afterSignInUrl="/admin/dashboard"
           />
           {isLoaded && isSignedIn && (
             <div className="mt-4 text-center">

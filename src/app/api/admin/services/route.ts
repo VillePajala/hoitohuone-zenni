@@ -1,14 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { auth } from '@clerk/nextjs/server';
+import { getAuth } from '@clerk/nextjs/server';
 
 // GET /api/admin/services - Get all services
 export async function GET(req: NextRequest) {
   try {
-    // Use Clerk to check if the user is authenticated
-    const { userId } = await auth();
+    // Get the session from the request
+    const { userId } = getAuth(req);
+    
+    // Check if user is authenticated
     if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json(
+        { error: 'Unauthorized - Please sign in to access this resource' },
+        { status: 401 }
+      );
     }
     
     // Get query parameters
@@ -33,7 +38,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(services);
   } catch (error) {
     console.error('Error getting services:', error);
-    return NextResponse.json({ error: 'Failed to fetch services' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to fetch services. Please try again later.' },
+      { status: 500 }
+    );
   }
 }
 
@@ -41,9 +49,12 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     // Check if the user is authenticated
-    const { userId } = await auth();
+    const { userId } = getAuth(req);
     if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json(
+        { error: 'Unauthorized - Please sign in to access this resource' },
+        { status: 401 }
+      );
     }
     
     // Get request body
@@ -53,7 +64,10 @@ export async function POST(req: NextRequest) {
     const requiredFields = ['name', 'nameEn', 'nameFi', 'description', 'descriptionEn', 'descriptionFi', 'duration', 'price'];
     for (const field of requiredFields) {
       if (!data[field]) {
-        return NextResponse.json({ error: `Missing required field: ${field}` }, { status: 400 });
+        return NextResponse.json(
+          { error: `Missing required field: ${field}` },
+          { status: 400 }
+        );
       }
     }
     
@@ -65,6 +79,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(service, { status: 201 });
   } catch (error) {
     console.error('Error creating service:', error);
-    return NextResponse.json({ error: 'Failed to create service' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to create service. Please try again later.' },
+      { status: 500 }
+    );
   }
 } 

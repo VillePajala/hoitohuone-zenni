@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/card';
 import { Plus, Edit, Trash, Check, X, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import ServiceForm from '@/components/admin/services/ServiceForm';
+import { useAuth } from '@clerk/nextjs';
 
 type Service = {
   id: string;
@@ -29,22 +30,31 @@ export function ServiceList() {
   const [isFormOpen, setIsFormOpen] = useState<boolean>(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
   const router = useRouter();
+  const { getToken } = useAuth();
 
   // Fetch services
   useEffect(() => {
     async function fetchServices() {
       try {
         setLoading(true);
-        const response = await fetch('/api/admin/services');
+        const token = await getToken();
+        const response = await fetch('/api/admin/services', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
         
         if (!response.ok) {
-          throw new Error('Failed to fetch services');
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to fetch services');
         }
         
         const data = await response.json();
         setServices(data);
       } catch (err) {
-        setError('Error loading services. Please try again.');
+        const errorMessage = err instanceof Error ? err.message : 'Error loading services. Please try again.';
+        setError(errorMessage);
         console.error('Error fetching services:', err);
       } finally {
         setLoading(false);
@@ -52,7 +62,7 @@ export function ServiceList() {
     }
     
     fetchServices();
-  }, []);
+  }, [getToken]);
 
   const handleCreateService = () => {
     setEditingService(null);
@@ -66,16 +76,19 @@ export function ServiceList() {
 
   const handleToggleStatus = async (service: Service) => {
     try {
+      const token = await getToken();
       const response = await fetch(`/api/admin/services/${service.id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ active: !service.active }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to update service status');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update service status');
       }
 
       // Update local state
@@ -83,7 +96,8 @@ export function ServiceList() {
         s.id === service.id ? { ...s, active: !s.active } : s
       ));
     } catch (err) {
-      setError('Error updating service status. Please try again.');
+      const errorMessage = err instanceof Error ? err.message : 'Error updating service status. Please try again.';
+      setError(errorMessage);
       console.error('Error updating service status:', err);
     }
   };
@@ -94,18 +108,25 @@ export function ServiceList() {
     }
 
     try {
+      const token = await getToken();
       const response = await fetch(`/api/admin/services/${id}`, {
         method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
       });
 
       if (!response.ok) {
-        throw new Error('Failed to delete service');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete service');
       }
 
       // Remove from local state
       setServices(services.filter(service => service.id !== id));
     } catch (err) {
-      setError('Error deleting service. Please try again.');
+      const errorMessage = err instanceof Error ? err.message : 'Error deleting service. Please try again.';
+      setError(errorMessage);
       console.error('Error deleting service:', err);
     }
   };
