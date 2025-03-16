@@ -154,24 +154,108 @@ model BlockedDate {
 
 ### Service Endpoints
 - `GET /api/services` - Get all active services
+  - Query params: `activeOnly` (boolean) to filter active services only
+  - Returns array of service objects
 - `GET /api/services/:id` - Get a specific service by ID
+  - Returns single service object or 404 if not found
+
+### Admin Service Endpoints
+- `GET /api/admin/services` - Get all services (including inactive)
+  - Query params: `activeOnly` (boolean) to filter active services only
+  - Returns array of service objects
+- `POST /api/admin/services` - Create a new service
+  - Required fields: name, nameEn, nameFi, description, descriptionEn, descriptionFi, duration, price
+  - Returns created service object
+- `GET /api/admin/services/:id` - Get specific service details
+  - Returns single service object or 404 if not found
+- `PUT /api/admin/services/:id` - Full update of a service
+  - Returns updated service object
+- `PATCH /api/admin/services/:id` - Partial update of a service
+  - Returns updated service object
+- `DELETE /api/admin/services/:id` - Delete a service
+  - Returns success message or sets service inactive if it has bookings
 
 ### Availability Endpoints
-- `GET /api/availability` - Get all availability settings
 - `GET /api/availability/:date` - Get available time slots for a specific date
-- `POST /api/availability` - Create/update availability settings (admin only)
-- `DELETE /api/availability/:id` - Delete availability setting (admin only)
+  - Query params: `serviceId` (required) to specify which service
+  - Returns object with available boolean, message, and timeSlots array
+- `GET /api/admin/availability/weekly` - Get all weekly availability settings
+  - Returns array of availability objects ordered by dayOfWeek
+- `POST /api/admin/availability/weekly` - Update weekly availability settings
+  - Expects days object with enabled status and timeSlots
+  - Returns success confirmation
+- `GET /api/admin/blocked-dates` - Get all blocked dates
+  - Returns array of blocked date objects
+- `POST /api/admin/blocked-dates` - Block a date
+  - Expects date and optional reason
+  - Returns created blocked date object
+- `GET /api/admin/blocked-dates/:id` - Get specific blocked date
+  - Returns single blocked date object or 404
+- `DELETE /api/admin/blocked-dates/:id` - Unblock a date
+  - Returns success confirmation
 
 ### Booking Endpoints
 - `POST /api/bookings` - Create a new booking
+  - Required fields: serviceId, customerName, customerEmail, date, startTime, endTime
+  - Returns created booking object
 - `GET /api/bookings/:id` - Get booking details by ID
-- `GET /api/bookings` - Get all bookings (admin only)
-- `PATCH /api/bookings/:id` - Update booking status (admin only)
-- `DELETE /api/bookings/:id` - Cancel a booking
+  - Returns single booking object or 404
+- `POST /api/bookings/cancel` - Cancel a booking
+  - Requires valid cancellationId
+  - Returns success confirmation
 
-### Admin Endpoints
-- `POST /api/admin/blocked-dates` - Block a date (admin only)
-- `DELETE /api/admin/blocked-dates/:id` - Unblock a date (admin only)
+### Admin Booking Endpoints
+- `GET /api/admin/bookings` - Get all bookings with filtering 
+  - Query params: `status`, `service` (serviceId), `date`, `search` (for customer data)
+  - Returns array of booking objects with service details
+- `GET /api/admin/bookings/:id` - Get detailed booking information
+  - Returns single booking object with service data or 404
+- `PATCH /api/admin/bookings/:id` - Update booking (status, notes)
+  - Returns updated booking object
+
+## Authentication Implementation
+
+For the admin section, we will implement [Clerk](https://clerk.com/) for authentication:
+
+### Why Clerk
+- Easy integration with Next.js App Router
+- Pre-built UI components for login/signup
+- Multiple authentication methods (email/password, OAuth, etc.)
+- User management dashboard
+- Role-based permissions for admin access
+- Excellent security out of the box
+
+### Implementation Steps
+1. Install Clerk SDK: `npm install @clerk/nextjs`
+2. Set up environment variables:
+   ```
+   NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
+   CLERK_SECRET_KEY=sk_test_...
+   ```
+3. Add Clerk provider in root layout
+4. Add middleware to protect admin routes:
+   ```typescript
+   // middleware.ts 
+   import { authMiddleware } from "@clerk/nextjs";
+   
+   export default authMiddleware({
+     // Only protect admin routes
+     publicRoutes: [
+       "/",
+       "/fi(.*)",
+       "/en(.*)",
+       "/api/services(.*)",
+       "/api/availability(.*)",
+       "/api/bookings((?!admin).)*",
+     ],
+   });
+   
+   export const config = {
+     matcher: ["/((?!.+\\.[\\w]+$|_next).*)", "/", "/(api|trpc)(.*)"],
+   };
+   ```
+5. Replace current hardcoded login with Clerk components
+6. Add admin role verification in API routes
 
 ## Frontend Components
 

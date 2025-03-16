@@ -1,22 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
 
 // GET /api/admin/bookings
 export async function GET(req: NextRequest) {
   try {
     // In production, you would check if the user is authorized as an admin
-    // const session = await getServerSession(authOptions);
-    // if (!session || session.user.role !== 'admin') {
-    //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    // }
-
+    
     // Get query parameters
     const searchParams = req.nextUrl.searchParams;
     const status = searchParams.get('status');
-    const service = searchParams.get('service');
-    const date = searchParams.get('date');
+    const serviceId = searchParams.get('service');
+    const dateStr = searchParams.get('date');
     const search = searchParams.get('search');
 
     // Build where clause based on query parameters
@@ -26,19 +20,26 @@ export async function GET(req: NextRequest) {
       where.status = status;
     }
 
-    if (service) {
-      where.service = service;
+    if (serviceId) {
+      where.serviceId = serviceId;
     }
 
-    if (date) {
-      where.date = date;
+    if (dateStr) {
+      // Parse and handle date filtering
+      const date = new Date(dateStr);
+      if (!isNaN(date.getTime())) {
+        where.date = {
+          gte: new Date(date.setHours(0, 0, 0, 0)),
+          lt: new Date(date.setHours(23, 59, 59, 999))
+        };
+      }
     }
 
     if (search) {
       where.OR = [
-        { customerName: { contains: search, mode: 'insensitive' } },
-        { customerEmail: { contains: search, mode: 'insensitive' } },
-        { notes: { contains: search, mode: 'insensitive' } }
+        { customerName: { contains: search } },
+        { customerEmail: { contains: search } },
+        { notes: { contains: search } }
       ];
     }
 
@@ -48,19 +49,8 @@ export async function GET(req: NextRequest) {
       orderBy: {
         date: 'asc'
       },
-      select: {
-        id: true,
-        customerName: true,
-        customerEmail: true,
-        customerPhone: true,
-        service: true,
-        date: true,
-        startTime: true,
-        endTime: true,
-        notes: true,
-        status: true,
-        createdAt: true,
-        cancelledAt: true
+      include: {
+        service: true
       }
     });
 

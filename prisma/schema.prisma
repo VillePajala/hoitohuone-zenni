@@ -11,7 +11,7 @@ generator client {
 // For local development with SQLite
 datasource db {
   provider = "sqlite"
-  url      = "file:./dev.db"
+  url      = env("DATABASE_URL")
 }
 
 // For production with Supabase PostgreSQL (uncomment when deploying)

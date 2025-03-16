@@ -6,6 +6,8 @@ import Footer from "@/components/layout/Footer";
 import { Suspense } from 'react';
 import PageTransition from '@/components/PageTransition';
 import PageLoading from '@/components/PageLoading';
+import { ClerkProvider } from '@clerk/nextjs';
+import AdminBar from "@/components/layout/AdminBar";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -80,16 +82,29 @@ export default function RootLayout({
   const lang = params.lang || 'fi';
 
   return (
-    <html lang={lang} className={`${inter.variable} ${playfair.variable}`}>
-      <body className="min-h-screen flex flex-col">
-        <Navigation />
-        <main className="flex-grow pt-16">
-          <Suspense fallback={<PageLoading />}>
-            <PageTransition>{children}</PageTransition>
-          </Suspense>
-        </main>
-        <Footer />
-      </body>
-    </html>
+    <ClerkProvider
+      afterSignInUrl="/admin/dashboard"
+      afterSignUpUrl="/admin/dashboard"
+      signInUrl="/admin/sign-in"
+      signUpUrl="/admin/sign-up"
+      publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+      appearance={{
+        baseTheme: undefined,
+        variables: { colorPrimary: '#4f46e5' },
+      }}
+    >
+      <html lang={lang} className={`${inter.variable} ${playfair.variable}`}>
+        <body className="min-h-screen flex flex-col">
+          <AdminBar />
+          <Navigation />
+          <main className="flex-grow pt-20">
+            <Suspense fallback={<PageLoading />}>
+              <PageTransition>{children}</PageTransition>
+            </Suspense>
+          </main>
+          <Footer />
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }

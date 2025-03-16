@@ -1,46 +1,51 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { useAuth, useUser } from '@clerk/nextjs';
 
 export default function AdminDashboardPage() {
   const router = useRouter();
-  const [isAuthenticated, setIsAuthenticated] = useState(true); // This should be checked via real auth
+  const { isLoaded, isSignedIn } = useAuth();
+  const { user } = useUser();
+  const [bookingCount, setBookingCount] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // In a real app, you would verify authentication status here
+  // Fetch dashboard data
   useEffect(() => {
-    // Example check - in a real app this would check for an auth token/session
-    // For now, we're simulating authentication
-    const checkAuth = () => {
-      // In a real implementation, check for a session/token
-      // If not authenticated, redirect to login
-      if (!isAuthenticated) {
-        router.push('/admin/login');
+    const fetchDashboardData = async () => {
+      if (!isSignedIn) return;
+      
+      try {
+        setIsLoading(true);
+        // Fetch upcoming bookings count
+        const response = await fetch('/api/admin/bookings?status=confirmed');
+        const bookings = await response.json();
+        setBookingCount(bookings.length);
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
-    checkAuth();
-  }, [isAuthenticated, router]);
+    if (isLoaded && isSignedIn) {
+      fetchDashboardData();
+    }
+  }, [isLoaded, isSignedIn]);
 
-  const handleLogout = () => {
-    // In a real app, clear the auth token/session
-    setIsAuthenticated(false);
-    router.push('/admin/login');
-  };
-
-  if (!isAuthenticated) {
-    return null; // Don't render anything while redirecting
+  // Show loading state while Clerk is initializing
+  if (!isLoaded || !isSignedIn) {
+    return null; // Don't render anything, the admin layout will handle the redirect
   }
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      <div className="flex justify-between items-center mb-6">
+      <div className="mb-6">
         <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-        <Button variant="outline" onClick={handleLogout}>
-          Logout
-        </Button>
+        <p className="text-gray-500">Welcome back, {user?.firstName || user?.emailAddresses[0]?.emailAddress?.split('@')[0] || 'Admin'}</p>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -49,8 +54,14 @@ export default function AdminDashboardPage() {
             <CardTitle>Active Bookings</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-4xl font-bold">0</p>
-            <p className="text-sm text-muted-foreground">Upcoming confirmed bookings</p>
+            {isLoading ? (
+              <p className="text-4xl font-bold">...</p>
+            ) : (
+              <>
+                <p className="text-4xl font-bold">{bookingCount}</p>
+                <p className="text-sm text-muted-foreground">Upcoming confirmed bookings</p>
+              </>
+            )}
           </CardContent>
         </Card>
 
