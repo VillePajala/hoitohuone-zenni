@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { LayoutDashboard, CalendarDays, Users, Settings, LogOut, Menu, X, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useAuth, useUser, SignOutButton } from '@clerk/nextjs';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -13,28 +14,35 @@ interface AdminLayoutProps {
 export default function AdminLayout({ children }: AdminLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const [isAuthenticated, setIsAuthenticated] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  
+  // Use Clerk's useAuth hook to check if the user is authenticated
+  const { isLoaded, userId, isSignedIn } = useAuth();
+  const { user } = useUser();
 
-  // Skip authentication check on the login page
-  const isLoginPage = pathname === '/admin/login';
+  // Skip authentication check on the login, sign-in and sign-up pages
+  const isAuthPage = pathname === '/admin/login' || 
+                     pathname === '/admin/sign-in' || 
+                     pathname === '/admin/sign-up';
 
   useEffect(() => {
-    // In a real app, this would check for a valid session/token
-    // For now, we're just simulating authentication
-    if (!isAuthenticated && !isLoginPage) {
-      router.push('/admin/login');
+    // Wait for Clerk to load
+    if (!isLoaded) return;
+    
+    // Redirect to sign-in if not authenticated and not on an auth page
+    if (!isSignedIn && !isAuthPage) {
+      router.push('/admin/sign-in');
     }
-  }, [isAuthenticated, isLoginPage, router]);
+  }, [isSignedIn, isAuthPage, router, isLoaded]);
 
-  const handleLogout = () => {
-    setIsAuthenticated(false);
-    router.push('/admin/login');
-  };
-
-  // Don't show admin layout on login page
-  if (isLoginPage) {
+  // Don't show admin layout on auth pages
+  if (isAuthPage) {
     return <>{children}</>;
+  }
+  
+  // Show loading or children based on auth state
+  if (!isLoaded || !isSignedIn) {
+    return <div className="flex justify-center items-center min-h-screen">Loading...</div>;
   }
 
   return (
@@ -51,6 +59,10 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           </button>
         </div>
         <nav className={`flex-1 space-y-1 p-4 ${mobileMenuOpen ? 'block' : 'hidden'} lg:block`}>
+          <div className="mb-6 px-3 py-2">
+            <p className="text-sm text-gray-500">Signed in as:</p>
+            <p className="font-medium truncate">{user?.primaryEmailAddress?.emailAddress}</p>
+          </div>
           <Link
             href="/admin/dashboard"
             className={`flex items-center rounded-md px-3 py-2 ${
@@ -100,13 +112,13 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             <Settings className="mr-3 h-5 w-5" />
             Settings
           </Link>
-          <button
-            onClick={handleLogout}
+          <Link
+            href="/admin/logout"
             className="flex w-full items-center rounded-md px-3 py-2 text-gray-700 hover:bg-gray-50"
           >
             <LogOut className="mr-3 h-5 w-5" />
             Logout
-          </button>
+          </Link>
         </nav>
       </div>
 
@@ -147,6 +159,11 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           }`}
         >
           <Settings className="h-6 w-6" />
+        </Link>
+        <Link href="/admin/logout" 
+          className="p-2 rounded-md text-gray-500"
+        >
+          <LogOut className="h-6 w-6" />
         </Link>
       </div>
 
