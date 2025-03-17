@@ -50,6 +50,9 @@ export default function WeeklySchedule() {
     Sunday: { enabled: false, timeSlots: [] },
   });
 
+  // Add message state for feedback
+  const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' | 'pending' } | null>(null);
+
   // Toggle a day on/off
   const toggleDay = (day: string) => {
     setDays((prev) => ({
@@ -112,15 +115,38 @@ export default function WeeklySchedule() {
 
   // Save all settings
   const saveSettings = async () => {
-    // This would be replaced with an actual API call
-    console.log('Saving settings:', days);
-    // Example API call:
-    // await fetch('/api/admin/availability/weekly', {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify({ days }),
-    // });
-    alert('Settings saved successfully!');
+    try {
+      // Show loading state
+      setMessage({ text: 'Saving settings...', type: 'pending' });
+      
+      // Make API call to save the weekly schedule
+      const response = await fetch('/api/admin/availability/weekly', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ days }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to save weekly schedule');
+      }
+      
+      // Show success message
+      setMessage({ text: 'Weekly schedule saved successfully!', type: 'success' });
+      
+      // Clear success message after a few seconds
+      setTimeout(() => {
+        setMessage(null);
+      }, 3000);
+    } catch (error) {
+      console.error('Error saving weekly schedule:', error);
+      setMessage({ 
+        text: error instanceof Error ? error.message : 'An unexpected error occurred', 
+        type: 'error' 
+      });
+    }
   };
 
   return (

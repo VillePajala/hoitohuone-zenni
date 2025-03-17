@@ -20,34 +20,31 @@ export default function BlockedDates({ selectedDate }: BlockedDatesProps) {
   const [blockedDates, setBlockedDates] = useState<BlockedDate[]>([]);
   const [newReason, setNewReason] = useState('');
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-  // This would typically be fetched from the backend
+  // Fetch blocked dates from the API
   useEffect(() => {
-    // Simulate fetching blocked dates
     const fetchBlockedDates = async () => {
-      // In a real app, fetch from API:
-      // const response = await fetch('/api/admin/blocked-dates');
-      // const data = await response.json();
-      // setBlockedDates(data);
-
-      // For demo, use sample data
-      setBlockedDates([
-        {
-          id: '1',
-          date: new Date(2025, 0, 1), // New Year's Day
-          reason: 'New Year\'s Day'
-        },
-        {
-          id: '2',
-          date: new Date(2025, 11, 24), // Christmas Eve
-          reason: 'Christmas Eve'
-        },
-        {
-          id: '3',
-          date: new Date(2025, 11, 25), // Christmas
-          reason: 'Christmas Day'
+      try {
+        setIsLoading(true);
+        const response = await fetch('/api/admin/availability/blocked');
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to fetch blocked dates');
         }
-      ]);
+        
+        const data = await response.json();
+        setBlockedDates(data);
+      } catch (error) {
+        console.error('Error fetching blocked dates:', error);
+        setMessage({ 
+          text: error instanceof Error ? error.message : 'Failed to fetch blocked dates', 
+          type: 'error' 
+        });
+      } finally {
+        setIsLoading(false);
+      }
     };
 
     fetchBlockedDates();
@@ -55,70 +52,105 @@ export default function BlockedDates({ selectedDate }: BlockedDatesProps) {
 
   // Add a new blocked date
   const addBlockedDate = async () => {
-    if (!selectedDate) {
-      setMessage({
-        text: 'Please select a date first',
-        type: 'error'
+    try {
+      if (!selectedDate) {
+        setMessage({ text: 'Please select a date', type: 'error' });
+        return;
+      }
+
+      if (!newReason.trim()) {
+        setMessage({ text: 'Please enter a reason', type: 'error' });
+        return;
+      }
+
+      setIsLoading(true);
+      
+      // Check if the date is already blocked
+      const existingDate = blockedDates.find(
+        (date) => date.date.toDateString() === selectedDate.toDateString()
+      );
+      
+      if (existingDate) {
+        setMessage({ text: 'This date is already blocked', type: 'error' });
+        setIsLoading(false);
+        return;
+      }
+
+      // Make API call to block the date
+      const response = await fetch('/api/admin/availability/blocked', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          date: selectedDate.toISOString(),
+          reason: newReason,
+        }),
       });
-      return;
-    }
 
-    // Check if date is already blocked
-    const dateAlreadyBlocked = blockedDates.some(
-      (blockedDate) => blockedDate.date.toDateString() === selectedDate.toDateString()
-    );
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to block date');
+      }
 
-    if (dateAlreadyBlocked) {
-      setMessage({
-        text: 'This date is already blocked',
-        type: 'error'
+      const newBlockedDate = await response.json();
+      
+      // Update the local state
+      setBlockedDates([...blockedDates, newBlockedDate]);
+      setNewReason('');
+      setMessage({ text: 'Date blocked successfully!', type: 'success' });
+      
+      // Clear success message after a few seconds
+      setTimeout(() => {
+        setMessage(null);
+      }, 3000);
+    } catch (error) {
+      console.error('Error blocking date:', error);
+      setMessage({ 
+        text: error instanceof Error ? error.message : 'An unexpected error occurred', 
+        type: 'error' 
       });
-      return;
+    } finally {
+      setIsLoading(false);
     }
-
-    const newBlockedDate: BlockedDate = {
-      id: Date.now().toString(),
-      date: selectedDate,
-      reason: newReason || 'Unavailable'
-    };
-
-    // In a real app, save to API:
-    // await fetch('/api/admin/blocked-dates', {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify(newBlockedDate),
-    // });
-
-    setBlockedDates([...blockedDates, newBlockedDate]);
-    setNewReason('');
-    setMessage({
-      text: 'Date blocked successfully',
-      type: 'success'
-    });
-
-    // Clear message after 3 seconds
-    setTimeout(() => {
-      setMessage(null);
-    }, 3000);
   };
 
   // Remove a blocked date
   const removeBlockedDate = async (id: string) => {
-    // In a real app, delete from API:
-    // await fetch(`/api/admin/blocked-dates/${id}`, {
-    //   method: 'DELETE',
-    // });
+    try {
+      setIsLoading(true);
+      
+      // Make API call to remove the blocked date
+      const response = await fetch('/api/admin/availability/blocked', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ id }),
+      });
 
-    setBlockedDates(blockedDates.filter((date) => date.id !== id));
-    setMessage({
-      text: 'Date unblocked successfully',
-      type: 'success'
-    });
-
-    // Clear message after 3 seconds
-    setTimeout(() => {
-      setMessage(null);
-    }, 3000);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to remove blocked date');
+      }
+      
+      // Update the local state
+      setBlockedDates(blockedDates.filter(date => date.id !== id));
+      setMessage({ text: 'Blocked date removed successfully!', type: 'success' });
+      
+      // Clear success message after a few seconds
+      setTimeout(() => {
+        setMessage(null);
+      }, 3000);
+    } catch (error) {
+      console.error('Error removing blocked date:', error);
+      setMessage({ 
+        text: error instanceof Error ? error.message : 'An unexpected error occurred', 
+        type: 'error' 
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const formatDate = (date: Date) => {

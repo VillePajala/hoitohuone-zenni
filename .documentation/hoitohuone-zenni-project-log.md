@@ -115,3 +115,14 @@
 - Set up software specifications
 - Documented UX design decisions
 - Created product requirements document
+
+## March 20, 2024
+
+### Database Schema Fix for Service Ordering
+- Identified and fixed issue with missing "order" column in SQLite database
+- Directly modified SQLite database using ALTER TABLE command to add the missing column
+- Regenerated Prisma client to ensure compatibility with updated schema
+- Fixed API endpoints to properly use the order field for service sorting
+- Restored drag-and-drop reordering functionality in admin interface
+- Verified database schema alignment with Prisma schema to prevent future issues
+- Updated service creation to properly assign order values to new services

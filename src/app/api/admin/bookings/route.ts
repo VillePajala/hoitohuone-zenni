@@ -36,7 +36,14 @@ export async function GET(req: NextRequest) {
       // Directly get all bookings
       const bookings = await prisma.booking.findMany({
         include: {
-          service: true
+          service: {
+            select: {
+              id: true,
+              name: true,
+              nameFi: true,
+              nameEn: true
+            }
+          }
         }
       });
       

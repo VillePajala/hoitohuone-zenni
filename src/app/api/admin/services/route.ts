@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
     const services = await prisma.service.findMany({
       where,
       orderBy: {
-        name: 'asc'
+        order: 'asc'
       }
     });
     
@@ -54,23 +54,43 @@ export async function GET(req: NextRequest) {
 // POST /api/admin/services - Create a new service
 export async function POST(req: NextRequest) {
   try {
-    // Get request body
     const data = await req.json();
     
     // Validate required fields
-    const requiredFields = ['name', 'nameEn', 'nameFi', 'description', 'descriptionEn', 'descriptionFi', 'duration', 'price'];
-    for (const field of requiredFields) {
-      if (!data[field]) {
-        return NextResponse.json(
-          { error: `Missing required field: ${field}` },
-          { status: 400 }
-        );
-      }
+    if (!data.name || !data.duration) {
+      return NextResponse.json(
+        { error: 'Name and duration are required fields' },
+        { status: 400 }
+      );
     }
     
-    // Create service
+    // Find the highest order value and add 1
+    const maxOrderService = await prisma.service.findFirst({
+      orderBy: {
+        order: 'desc'
+      },
+      select: {
+        order: true
+      }
+    });
+    
+    const nextOrder = maxOrderService ? maxOrderService.order + 1 : 0;
+    
+    // Create new service with the next order value
     const service = await prisma.service.create({
-      data
+      data: {
+        name: data.name,
+        nameEn: data.nameEn || data.name,
+        nameFi: data.nameFi || data.name,
+        description: data.description || '',
+        descriptionEn: data.descriptionEn || data.description || '',
+        descriptionFi: data.descriptionFi || data.description || '',
+        duration: data.duration,
+        price: data.price || 0,
+        currency: data.currency || 'EUR',
+        active: data.active !== undefined ? data.active : true,
+        order: nextOrder
+      }
     });
     
     return NextResponse.json(service, { status: 201 });
@@ -80,7 +100,38 @@ export async function POST(req: NextRequest) {
       { error: 'Failed to create service. Please try again later.' },
       { status: 500 }
     );
-  } finally {
-    await prisma.$disconnect();
+  }
+}
+
+// PATCH /api/admin/services/reorder - Update service order
+export async function PATCH(req: NextRequest) {
+  try {
+    const data = await req.json();
+    
+    // Validate required fields
+    if (!data.services || !Array.isArray(data.services)) {
+      return NextResponse.json(
+        { error: 'Services array is required' },
+        { status: 400 }
+      );
+    }
+    
+    // Update orders in a transaction
+    const updates = data.services.map((service: { id: string, order: number }) => 
+      prisma.service.update({
+        where: { id: service.id },
+        data: { order: service.order }
+      })
+    );
+    
+    await prisma.$transaction(updates);
+    
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error reordering services:', error);
+    return NextResponse.json(
+      { error: 'Failed to update service order. Please try again later.' },
+      { status: 500 }
+    );
   }
 } 
