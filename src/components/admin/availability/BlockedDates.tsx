@@ -4,8 +4,23 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Trash2, Loader2 } from 'lucide-react';
+import { Calendar } from '@/components/ui/calendar';
+import { 
+  Trash2, 
+  Loader2, 
+  Calendar as CalendarIcon, 
+  Ban, 
+  Info 
+} from 'lucide-react';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 
 interface BlockedDate {
   id: string;
@@ -135,18 +150,18 @@ export default function BlockedDates({ selectedDate, onDateChange }: BlockedDate
       setIsLoading(true);
       
       // Use authDelete instead of fetch with token
-      await authDelete('/api/admin/availability/blocked', { id });
+      await authDelete(`/api/admin/availability/blocked/${id}`);
       
-      // Update the local state
+      // Update local state
       setBlockedDates(blockedDates.filter(date => date.id !== id));
-      setMessage({ text: 'Blocked date removed successfully!', type: 'success' });
+      setMessage({ text: 'Date unblocked successfully!', type: 'success' });
       
       // Clear success message after a few seconds
       setTimeout(() => {
         setMessage(null);
       }, 3000);
     } catch (error) {
-      console.error('Error removing blocked date:', error);
+      console.error('Error unblocking date:', error);
       if (!String(error).includes('Authentication') && 
           !String(error).includes('Unauthorized')) {
         setMessage({ 
@@ -166,6 +181,24 @@ export default function BlockedDates({ selectedDate, onDateChange }: BlockedDate
       day: 'numeric',
     });
   };
+
+  // Get month and year for grouping
+  const getMonthYear = (date: Date) => {
+    return date.toLocaleDateString('fi-FI', {
+      year: 'numeric',
+      month: 'long',
+    });
+  };
+
+  // Group blocked dates by month
+  const groupedBlockedDates = blockedDates.reduce((groups, date) => {
+    const monthYear = getMonthYear(date.date);
+    if (!groups[monthYear]) {
+      groups[monthYear] = [];
+    }
+    groups[monthYear].push(date);
+    return groups;
+  }, {} as Record<string, BlockedDate[]>);
 
   // If there's an auth error, display login prompt
   if (isAuthError) {
@@ -195,103 +228,173 @@ export default function BlockedDates({ selectedDate, onDateChange }: BlockedDate
     );
   }
 
+  // Calendar day modifier to highlight blocked dates
+  const getDateModifier = (date: Date) => {
+    const isBlocked = blockedDates.some(
+      blockedDate => blockedDate.date.toDateString() === date.toDateString()
+    );
+    
+    return isBlocked ? "bg-red-100 text-red-800 font-medium rounded-md hover:bg-red-200" : "";
+  };
+
   return (
     <div className="space-y-6">
       <div className="text-sm text-neutral-600 mb-4">
         Block out specific dates when you are unavailable, such as holidays or personal time off.
       </div>
 
-      <div className="bg-neutral-50 p-4 rounded-md">
-        <h3 className="font-medium mb-3">Add New Blocked Date</h3>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        {/* Left side - Calendar and form */}
+        <div className="space-y-4">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="mb-4">
+                <div className="flex items-center mb-2">
+                  <CalendarIcon className="mr-2 h-5 w-5 text-slate-500" />
+                  <h3 className="font-medium">Select Date to Block</h3>
+                </div>
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={(date) => onDateChange && date && onDateChange(date)}
+                  className="rounded-md border"
+                  classNames={{
+                    day_today: "bg-slate-100 text-slate-900 font-bold",
+                    day_selected: "bg-blue-600 text-white hover:bg-blue-700 hover:text-white",
+                  }}
+                  modifiers={{
+                    blocked: blockedDates.map(bd => bd.date)
+                  }}
+                  modifiersClassNames={{
+                    blocked: "bg-red-100 text-red-800 font-medium hover:bg-red-200"
+                  }}
+                />
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-          <div>
-            <Label htmlFor="date-input" className="block mb-1">Selected Date</Label>
-            <Input
-              id="date-input"
-              type="date"
-              value={selectedDate ? selectedDate.toISOString().split('T')[0] : ''}
-              onChange={(e) => {
-                if (e.target.value && onDateChange) {
-                  const newDate = new Date(e.target.value);
-                  onDateChange(newDate);
-                }
-              }}
-              className="block w-full"
-            />
-            <div className="text-xs text-neutral-500 mt-1">
-              Select a date on the calendar or use this field
-            </div>
-          </div>
-
-          <div>
-            <Label htmlFor="reason" className="block mb-1">Reason (Optional)</Label>
-            <Input
-              id="reason"
-              value={newReason}
-              onChange={(e) => setNewReason(e.target.value)}
-              placeholder="e.g., Holiday, Vacation, etc."
-            />
-          </div>
-        </div>
-
-        <Button 
-          onClick={addBlockedDate} 
-          disabled={!selectedDate || isLoading}
-          className="relative"
-        >
-          {isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-          Block This Date
-        </Button>
-
-        {message && (
-          <div
-            className={`mt-3 p-2 rounded text-sm ${
-              message.type === 'success' 
-                ? 'bg-green-100 text-green-800' 
-                : 'bg-red-100 text-red-800'
-            }`}
-          >
-            {message.text}
-          </div>
-        )}
-      </div>
-
-      <div className="mt-6">
-        <h3 className="font-medium mb-3">Currently Blocked Dates</h3>
-        
-        {blockedDates.length > 0 ? (
-          <div className="space-y-2">
-            {blockedDates
-              .sort((a, b) => a.date.getTime() - b.date.getTime())
-              .map((blockedDate) => (
-                <div
-                  key={blockedDate.id}
-                  className="flex justify-between items-center p-3 border rounded-md bg-white"
-                >
+                <div className="mt-4 grid grid-cols-1 gap-4">
                   <div>
-                    <span className="font-medium">{formatDate(blockedDate.date)}</span>
-                    {blockedDate.reason && (
-                      <span className="text-neutral-500 ml-2">- {blockedDate.reason}</span>
-                    )}
+                    <Label htmlFor="date-input" className="block mb-1">Selected Date</Label>
+                    <Input
+                      id="date-input"
+                      type="date"
+                      value={selectedDate ? selectedDate.toISOString().split('T')[0] : ''}
+                      onChange={(e) => {
+                        if (e.target.value && onDateChange) {
+                          const newDate = new Date(e.target.value);
+                          onDateChange(newDate);
+                        }
+                      }}
+                      className="block w-full"
+                    />
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => removeBlockedDate(blockedDate.id)}
-                    disabled={isLoading}
-                    className="text-red-500 hover:text-red-700 hover:bg-red-50"
+
+                  <div>
+                    <Label htmlFor="reason" className="block mb-1">Reason for Blocking</Label>
+                    <Input
+                      id="reason"
+                      value={newReason}
+                      onChange={(e) => setNewReason(e.target.value)}
+                      placeholder="e.g., Holiday, Vacation, etc."
+                    />
+                  </div>
+
+                  <Button 
+                    onClick={addBlockedDate} 
+                    disabled={!selectedDate || isLoading || !newReason.trim()}
+                    className="w-full"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    {isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                    Block This Date
                   </Button>
                 </div>
-              ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {message && (
+            <div
+              className={`p-3 rounded text-sm ${
+                message.type === 'success' 
+                  ? 'bg-green-100 text-green-800 border border-green-200' 
+                  : 'bg-red-100 text-red-800 border border-red-200'
+              }`}
+            >
+              {message.text}
+            </div>
+          )}
+        </div>
+
+        {/* Right side - Blocked dates list */}
+        <div>
+          <div className="flex items-center mb-4">
+            <Ban className="mr-2 h-5 w-5 text-red-500" />
+            <h3 className="font-medium">Currently Blocked Dates</h3>
+            <Badge className="ml-2 bg-red-100 text-red-800 hover:bg-red-200 border-red-200">
+              {blockedDates.length}
+            </Badge>
           </div>
-        ) : (
-          <div className="text-neutral-500 italic p-4 text-center border rounded-md">
-            No dates are currently blocked.
-          </div>
-        )}
+          
+          {blockedDates.length > 0 ? (
+            <div className="space-y-6">
+              {Object.entries(groupedBlockedDates)
+                .sort(([a], [b]) => {
+                  const dateA = new Date(a);
+                  const dateB = new Date(b);
+                  return dateA.getTime() - dateB.getTime();
+                })
+                .map(([monthYear, dates]) => (
+                  <div key={monthYear} className="space-y-2">
+                    <h4 className="font-medium text-sm text-slate-500 uppercase tracking-wider">
+                      {monthYear}
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {dates
+                        .sort((a, b) => a.date.getTime() - b.date.getTime())
+                        .map((blockedDate) => (
+                          <div
+                            key={blockedDate.id}
+                            className="flex justify-between items-center p-3 border rounded-md bg-white hover:bg-red-50 transition-colors"
+                          >
+                            <div className="flex items-start space-x-2">
+                              <Ban className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
+                              <div>
+                                <div className="font-medium">{formatDate(blockedDate.date)}</div>
+                                {blockedDate.reason && (
+                                  <div className="text-sm text-slate-500 line-clamp-1">{blockedDate.reason}</div>
+                                )}
+                              </div>
+                            </div>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => removeBlockedDate(blockedDate.id)}
+                                    disabled={isLoading}
+                                    className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Unblock this date</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                ))}
+            </div>
+          ) : (
+            <div className="bg-slate-50 border border-slate-200 p-8 rounded-md text-center flex flex-col items-center justify-center text-slate-500">
+              <Ban className="h-12 w-12 text-slate-300 mb-2" />
+              <p className="font-medium">No Blocked Dates</p>
+              <p className="text-sm mt-1">Select a date and add it to the blocked list</p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -97,13 +97,12 @@ export function useAdminAuth(redirectToLogin = false) {
   /**
    * Helper for DELETE requests
    */
-  const authDelete = useCallback(async (url: string, data: any) => {
+  const authDelete = useCallback(async (url: string) => {
     const response = await authFetch(url, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(data),
     });
 
     if (!response.ok) {
@@ -111,7 +110,12 @@ export function useAdminAuth(redirectToLogin = false) {
       throw new Error(errorData.error || `Failed to delete from ${url}: ${response.status}`);
     }
     
-    return response.json();
+    // For DELETE operations, many endpoints return 204 No Content
+    if (response.status === 204) {
+      return null;
+    }
+    
+    return response.json().catch(() => null); // Handle empty responses
   }, [authFetch]);
 
   /**
