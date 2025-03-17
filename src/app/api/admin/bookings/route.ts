@@ -36,25 +36,29 @@ export async function GET(req: NextRequest) {
     
     console.log(`Found ${bookings.length} bookings`);
     
-    if (bookings.length > 0) {
-      console.log('First booking ID:', bookings[0].id);
-    }
+    // Format bookings for the frontend
+    const formattedBookings = bookings.map(booking => {
+      console.log(`Booking ${booking.id} status: "${booking.status}"`);
+      
+      return {
+        id: booking.id,
+        customerName: booking.customerName,
+        customerEmail: booking.customerEmail,
+        service: {
+          id: booking.service.id,
+          name: booking.service.name,
+          nameFi: booking.service.nameFi,
+          nameEn: booking.service.nameEn
+        },
+        date: booking.date.toISOString(),
+        startTime: booking.startTime.toISOString(),
+        endTime: booking.endTime.toISOString(),
+        status: booking.status, // Keep the exact status as stored in database
+        language: booking.language
+      };
+    });
 
-    // Convert dates to ISO strings to avoid serialization issues
-    const mappedBookings = bookings.map(booking => ({
-      id: booking.id,
-      customerName: booking.customerName,
-      customerEmail: booking.customerEmail,
-      service: booking.service,
-      date: booking.date.toISOString(),
-      startTime: booking.startTime.toISOString(),
-      endTime: booking.endTime.toISOString(),
-      status: booking.status,
-      notes: booking.notes,
-      language: booking.language
-    }));
-
-    return NextResponse.json(mappedBookings);
+    return NextResponse.json(formattedBookings);
     
   } catch (error) {
     console.error('Error fetching bookings:', error);

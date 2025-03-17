@@ -35,14 +35,21 @@ export default function AdminDashboardPage() {
         
         console.log('Dashboard received bookings:', bookings.length);
         
-        // Only count confirmed bookings
+        if (bookings.length > 0) {
+          // Log first booking to debug
+          console.log('First booking:', JSON.stringify(bookings[0]));
+        }
+        
+        // Only count confirmed bookings, exact match
         const confirmedBookings = bookings.filter(
           (booking: Booking) => booking.status === 'confirmed'
         );
         
+        console.log('Confirmed bookings count:', confirmedBookings.length);
         setBookingCount(confirmedBookings.length);
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
+        setBookingCount(0);
       } finally {
         setIsLoading(false);
       }
