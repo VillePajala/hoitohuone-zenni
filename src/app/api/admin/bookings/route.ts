@@ -4,62 +4,65 @@ import { prisma } from '@/lib/prisma';
 // GET /api/admin/bookings
 export async function GET(req: NextRequest) {
   try {
-    // In production, you would check if the user is authorized as an admin
+    console.log('Fetching bookings...');
     
-    // Get query parameters
-    const searchParams = req.nextUrl.searchParams;
-    const status = searchParams.get('status');
-    const serviceId = searchParams.get('service');
-    const dateStr = searchParams.get('date');
-    const search = searchParams.get('search');
-
-    // Build where clause based on query parameters
-    const where: any = {};
-
-    if (status) {
-      where.status = status;
+    // Test database connection
+    try {
+      await prisma.$connect();
+      console.log('Database connection successful');
+    } catch (dbError) {
+      console.error('Database connection failed:', dbError);
+      return NextResponse.json(
+        { error: 'Database connection failed' },
+        { status: 500 }
+      );
     }
 
-    if (serviceId) {
-      where.serviceId = serviceId;
+    // Count bookings to check if database has any
+    const bookingCount = await prisma.booking.count();
+    console.log(`Total bookings in database: ${bookingCount}`);
+
+    if (bookingCount === 0) {
+      console.log('No bookings found in database');
+      return NextResponse.json([], { status: 200 });
     }
 
-    if (dateStr) {
-      // Parse and handle date filtering
-      const date = new Date(dateStr);
-      if (!isNaN(date.getTime())) {
-        where.date = {
-          gte: new Date(date.setHours(0, 0, 0, 0)),
-          lt: new Date(date.setHours(23, 59, 59, 999))
-        };
-      }
-    }
-
-    if (search) {
-      where.OR = [
-        { customerName: { contains: search } },
-        { customerEmail: { contains: search } },
-        { notes: { contains: search } }
-      ];
-    }
-
-    // Fetch bookings from the database
+    // Directly get all bookings
     const bookings = await prisma.booking.findMany({
-      where,
-      orderBy: {
-        date: 'asc'
-      },
       include: {
         service: true
       }
     });
+    
+    console.log(`Found ${bookings.length} bookings`);
+    
+    if (bookings.length > 0) {
+      console.log('First booking ID:', bookings[0].id);
+    }
 
-    return NextResponse.json(bookings);
+    // Convert dates to ISO strings to avoid serialization issues
+    const mappedBookings = bookings.map(booking => ({
+      id: booking.id,
+      customerName: booking.customerName,
+      customerEmail: booking.customerEmail,
+      service: booking.service,
+      date: booking.date.toISOString(),
+      startTime: booking.startTime.toISOString(),
+      endTime: booking.endTime.toISOString(),
+      status: booking.status,
+      notes: booking.notes,
+      language: booking.language
+    }));
+
+    return NextResponse.json(mappedBookings);
+    
   } catch (error) {
     console.error('Error fetching bookings:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch bookings' },
+      { error: 'Failed to fetch bookings', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 } 

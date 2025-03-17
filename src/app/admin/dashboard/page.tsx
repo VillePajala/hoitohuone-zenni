@@ -6,6 +6,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useAuth, useUser } from '@clerk/nextjs';
 
+// Add an interface for the booking type at the top of the file
+interface Booking {
+  id: string;
+  status: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+}
+
 export default function AdminDashboardPage() {
   const router = useRouter();
   const { isLoaded, isSignedIn } = useAuth();
@@ -21,9 +30,17 @@ export default function AdminDashboardPage() {
       try {
         setIsLoading(true);
         // Fetch upcoming bookings count
-        const response = await fetch('/api/admin/bookings?status=confirmed');
-        const bookings = await response.json();
-        setBookingCount(bookings.length);
+        const response = await fetch('/api/admin/bookings');
+        const bookings = await response.json() as Booking[];
+        
+        console.log('Dashboard received bookings:', bookings.length);
+        
+        // Only count confirmed bookings
+        const confirmedBookings = bookings.filter(
+          (booking: Booking) => booking.status === 'confirmed'
+        );
+        
+        setBookingCount(confirmedBookings.length);
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
       } finally {

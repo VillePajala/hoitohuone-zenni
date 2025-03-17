@@ -94,6 +94,92 @@ async function main() {
     },
   });
 
+  // Create test bookings
+  // Today
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); // Set to start of day for the date field
+  
+  // Create a copy for time operations
+  const todayStart = new Date(today);
+  todayStart.setHours(10, 0, 0, 0);
+  
+  const todayEnd = new Date(today);
+  todayEnd.setHours(11, 0, 0, 0);
+  
+  // Tomorrow
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setHours(0, 0, 0, 0); // Set to start of day for the date field
+  
+  const tomorrowStart = new Date(tomorrow);
+  tomorrowStart.setHours(14, 0, 0, 0);
+  
+  const tomorrowEnd = new Date(tomorrow);
+  tomorrowEnd.setHours(15, 0, 0, 0);
+  
+  // Day after tomorrow
+  const dayAfterTomorrow = new Date(today);
+  dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2);
+  dayAfterTomorrow.setHours(0, 0, 0, 0); // Set to start of day for the date field
+  
+  const dayAfterTomorrowStart = new Date(dayAfterTomorrow);
+  dayAfterTomorrowStart.setHours(12, 0, 0, 0);
+  
+  const dayAfterTomorrowEnd = new Date(dayAfterTomorrow);
+  dayAfterTomorrowEnd.setHours(13, 0, 0, 0);
+
+  console.log('Creating bookings with these dates:');
+  console.log('Today:', today);
+  console.log('Today start:', todayStart);
+  console.log('Today end:', todayEnd);
+
+  // Create a confirmed booking for today
+  await prisma.booking.create({
+    data: {
+      serviceId: energyHealing.id,
+      customerName: 'Matti Meikäläinen',
+      customerEmail: 'matti@example.com',
+      customerPhone: '+358401234567',
+      date: today,
+      startTime: todayStart,
+      endTime: todayEnd,
+      status: 'confirmed',
+      language: 'fi',
+      notes: 'First time client'
+    },
+  });
+
+  // Create a confirmed booking for tomorrow
+  await prisma.booking.create({
+    data: {
+      serviceId: reikiHealing.id,
+      customerName: 'Liisa Virtanen',
+      customerEmail: 'liisa@example.com',
+      customerPhone: '+358407654321',
+      date: tomorrow,
+      startTime: tomorrowStart,
+      endTime: tomorrowEnd,
+      status: 'confirmed',
+      language: 'fi'
+    },
+  });
+
+  // Create a cancelled booking
+  await prisma.booking.create({
+    data: {
+      serviceId: distanceHealing.id,
+      customerName: 'John Smith',
+      customerEmail: 'john@example.com',
+      customerPhone: '+358409876543',
+      date: dayAfterTomorrow,
+      startTime: dayAfterTomorrowStart,
+      endTime: dayAfterTomorrowEnd,
+      status: 'cancelled',
+      language: 'en',
+      notes: 'Cancelled due to illness'
+    },
+  });
+
   console.log('Database seeded successfully!');
 }
 
