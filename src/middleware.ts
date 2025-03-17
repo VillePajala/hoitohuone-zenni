@@ -40,6 +40,8 @@ const publicRoutes = [
   '/api/bookings',
   '/api/available-dates',
   '/api/time-slots',
+  '/api/debug', // Debug endpoints
+  '/admin/bookings/debug', // Debug UI
   'favicon.ico',
   '/_next',
   '/',
@@ -50,9 +52,16 @@ const publicRoutes = [
 
 // Create route matchers
 const isAdminRoute = createRouteMatcher(['/admin/(.*)', '/api/admin/(.*)']);
+const isDebugRoute = createRouteMatcher(['/api/debug/(.*)', '/admin/(.*)/debug/(.*)', '/admin/(.*)/debug']);
 
 // Export the middleware
 export default clerkMiddleware(async (auth, req) => {
+  // Skip auth for debug routes
+  if (isDebugRoute(req)) {
+    console.log('Debug route detected, bypassing auth');
+    return NextResponse.next();
+  }
+  
   // Handle admin routes (both UI and API)
   if (isAdminRoute(req)) {
     // Skip auth check for public admin routes

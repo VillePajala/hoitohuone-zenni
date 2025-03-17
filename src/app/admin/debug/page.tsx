@@ -1,71 +1,92 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useAuth, useUser } from '@clerk/nextjs';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
 export default function DebugPage() {
-  const { isLoaded, isSignedIn, userId } = useAuth();
-  const { user } = useUser();
-  const [envVars, setEnvVars] = useState<Record<string, string>>({});
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    // Check environment variables that are exposed to the client
-    setEnvVars({
-      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || 'not set',
-      NEXT_PUBLIC_CLERK_SIGN_IN_URL: process.env.NEXT_PUBLIC_CLERK_SIGN_IN_URL || 'not set',
-      NEXT_PUBLIC_CLERK_SIGN_UP_URL: process.env.NEXT_PUBLIC_CLERK_SIGN_UP_URL || 'not set',
-      NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL: process.env.NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL || 'not set',
-      NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL: process.env.NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL || 'not set',
-    });
-  }, []);
-
-  const handleManualRedirect = () => {
-    window.location.href = '/admin/dashboard';
+  const fetchDebugData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await fetch('/api/admin/bookings/debug');
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch debug data: ${response.status} ${response.statusText}`);
+      }
+      
+      const responseData = await response.json();
+      console.log('Debug data:', responseData);
+      setData(responseData);
+    } catch (err) {
+      console.error('Error fetching debug data:', err);
+      setError(err instanceof Error ? err.message : 'Unknown error occurred');
+    } finally {
+      setLoading(false);
+    }
   };
 
+  // Fetch debug data on load
+  useEffect(() => {
+    fetchDebugData();
+  }, []);
+
   return (
-    <div className="container mx-auto py-8">
-      <Card className="mb-8">
+    <div className="p-6 max-w-7xl mx-auto">
+      <Card className="mb-6">
         <CardHeader>
-          <CardTitle>Authentication Debug Information</CardTitle>
+          <CardTitle>Debug Page</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <h3 className="font-medium">Auth State:</h3>
-            <ul className="list-disc pl-5 mt-2">
-              <li>isLoaded: {isLoaded ? 'true' : 'false'}</li>
-              <li>isSignedIn: {isSignedIn ? 'true' : 'false'}</li>
-              <li>userId: {userId || 'none'}</li>
-            </ul>
+        <CardContent>
+          <div className="flex space-x-2 mb-4">
+            <Button onClick={fetchDebugData} disabled={loading}>
+              {loading ? 'Loading...' : 'Refresh Data'}
+            </Button>
+            <Button variant="outline" onClick={() => window.location.href = '/admin/bookings'}>
+              Go to Bookings
+            </Button>
           </div>
           
-          {user && (
-            <div>
-              <h3 className="font-medium">User Info:</h3>
-              <ul className="list-disc pl-5 mt-2">
-                <li>Email: {user.primaryEmailAddress?.emailAddress || 'none'}</li>
-                <li>Name: {user.fullName || 'none'}</li>
-                <li>Created: {user.createdAt ? new Date(user.createdAt).toLocaleString() : 'unknown'}</li>
-              </ul>
+          {error && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+              Error: {error}
             </div>
           )}
           
-          <div>
-            <h3 className="font-medium">Environment Variables:</h3>
-            <ul className="list-disc pl-5 mt-2">
-              {Object.entries(envVars).map(([key, value]) => (
-                <li key={key}>
-                  {key}: {value}
-                </li>
+          {data && (
+            <div>
+              <p className="mb-2 font-bold">Total Bookings: {data.count}</p>
+              
+              {data.bookings.map((booking: any) => (
+                <div key={booking.id} className="border p-4 mb-4 rounded">
+                  <h3 className="font-medium text-lg mb-2">Booking ID: {booking.id}</h3>
+                  <p><span className="font-semibold">Customer:</span> {booking.customerName} ({booking.customerEmail})</p>
+                  <p><span className="font-semibold">Service:</span> {booking.serviceNameFi} (ID: {booking.serviceId})</p>
+                  <p><span className="font-semibold">Status:</span> {booking.status}</p>
+                  
+                  <div className="mt-2 p-2 bg-gray-100 rounded">
+                    <p><span className="font-semibold">Date:</span> {booking.dateString}</p>
+                    <p><span className="font-semibold">Start Time:</span> {booking.startTimeString}</p>
+                    <p><span className="font-semibold">End Time:</span> {booking.endTimeString}</p>
+                  </div>
+                  
+                  <div className="mt-2">
+                    <details>
+                      <summary className="cursor-pointer font-semibold">Raw Data</summary>
+                      <pre className="mt-2 p-2 bg-gray-100 rounded overflow-auto text-xs">
+                        {JSON.stringify(booking, null, 2)}
+                      </pre>
+                    </details>
+                  </div>
+                </div>
               ))}
-            </ul>
-          </div>
-          
-          <Button onClick={handleManualRedirect}>
-            Manually Navigate to Dashboard
-          </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
