@@ -1,8 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getAuth } from '@clerk/nextjs/server';
 
 // Force dynamic rendering and bypass middleware caching
 export const dynamic = 'force-dynamic';
+
+// Helper function to check authentication
+function checkAuth(req: NextRequest) {
+  // Check if user is authenticated via Clerk
+  const { userId } = getAuth(req);
+  if (userId) return true;
+  
+  // Check for Bearer token
+  const authHeader = req.headers.get('authorization');
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    return true;
+  }
+  
+  return false;
+}
 
 // GET /api/admin/bookings
 export async function GET(req: NextRequest) {
@@ -10,6 +26,14 @@ export async function GET(req: NextRequest) {
   
   try {
     console.log('Fetching bookings...');
+    
+    // Check authentication
+    if (!checkAuth(req)) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Please sign in to access this resource' },
+        { status: 401 }
+      );
+    }
     
     // Test database connection
     try {
@@ -29,7 +53,7 @@ export async function GET(req: NextRequest) {
 
     if (bookingCount === 0) {
       console.log('No bookings found in database');
-      return NextResponse.json([], { status: 200 });
+      return NextResponse.json({ bookings: [] }, { status: 200 });
     }
 
     try {
@@ -77,7 +101,8 @@ export async function GET(req: NextRequest) {
       }).filter(booking => booking !== null);
 
       console.log(`Successfully formatted ${formattedBookings.length} bookings`);
-      return NextResponse.json(formattedBookings);
+      // Return in an object with bookings property to match the expected structure
+      return NextResponse.json({ bookings: formattedBookings });
     } catch (queryError) {
       console.error('Error querying bookings:', queryError);
       return NextResponse.json(
