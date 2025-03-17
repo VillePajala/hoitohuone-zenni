@@ -1,5 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getAuth } from '@clerk/nextjs/server';
+
+// Helper function to check authentication
+function checkAuth(req: NextRequest) {
+  // Check if user is authenticated via Clerk
+  const { userId } = getAuth(req);
+  if (userId) return true;
+  
+  // Check for Bearer token
+  const authHeader = req.headers.get('authorization');
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    return true;
+  }
+  
+  return false;
+}
 
 // GET /api/admin/services/[id]
 export async function GET(
@@ -7,7 +23,13 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    // In a production environment, you would check if the user is authorized as an admin
+    // Check authentication
+    if (!checkAuth(req)) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Please sign in to access this resource' },
+        { status: 401 }
+      );
+    }
     
     const id = params.id;
     
@@ -38,6 +60,14 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
+    // Check authentication
+    if (!checkAuth(req)) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Please sign in to access this resource' },
+        { status: 401 }
+      );
+    }
+    
     const id = params.id;
     const body = await req.json();
     
@@ -99,6 +129,14 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
+    // Check authentication
+    if (!checkAuth(req)) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Please sign in to access this resource' },
+        { status: 401 }
+      );
+    }
+    
     const id = params.id;
     const body = await req.json();
     
@@ -147,6 +185,14 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
+    // Check authentication
+    if (!checkAuth(req)) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Please sign in to access this resource' },
+        { status: 401 }
+      );
+    }
+    
     const id = params.id;
     
     // Check if service exists

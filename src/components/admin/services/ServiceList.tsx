@@ -37,9 +37,13 @@ export function ServiceList() {
     async function fetchServices() {
       try {
         setLoading(true);
+        // Get auth token from Clerk
+        const token = await getToken();
+        
         const response = await fetch('/api/admin/services', {
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
           }
         });
         
@@ -60,7 +64,7 @@ export function ServiceList() {
     }
     
     fetchServices();
-  }, []);
+  }, [getToken]);
 
   const handleCreateService = () => {
     setEditingService(null);
@@ -74,10 +78,14 @@ export function ServiceList() {
 
   const handleToggleStatus = async (service: Service) => {
     try {
+      // Get auth token from Clerk
+      const token = await getToken();
+      
       const response = await fetch(`/api/admin/services/${service.id}`, {
         method: 'PATCH',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ active: !service.active }),
       });
@@ -104,10 +112,14 @@ export function ServiceList() {
     }
 
     try {
+      // Get auth token from Clerk
+      const token = await getToken();
+      
       const response = await fetch(`/api/admin/services/${id}`, {
         method: 'DELETE',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         }
       });
 
