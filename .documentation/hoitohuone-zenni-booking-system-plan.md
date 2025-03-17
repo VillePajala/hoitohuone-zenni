@@ -56,21 +56,31 @@ This document outlines the comprehensive plan for implementing the booking syste
    - Bookings management interface ✓
    - Bookings detail view ✓
    - Debug tools for API diagnostics ✓
+   - Services management interface ✓
+   - Service ordering with drag-and-drop functionality ✓
+   - Service activation/deactivation ✓
 
 ### In Progress
-1. **Admin Dashboard Features**
-   - Services management interface (partly implemented)
+1. **Availability Management**
+   - Weekly schedule editor UI (functional but needs refinement)
+   - Blocked dates management UI (functional but needs refinement)
+   - API implementation for managing availability (basic functionality working)
+   - Testing and validation of availability settings
 
-2. **Availability Management**
-   - Weekly schedule editor UI (partly implemented)
-   - Blocked dates management UI (partly implemented)
-   - API implementation for managing availability
+2. **Booking Management Enhancements**
+   - Advanced filtering and search functionality
+   - Date range selection for viewing bookings
+   - Export functionality
+   - Mobile-responsive improvements
 
 ### Not Started
 1. **Advanced Admin Features**
    - Reports and analytics
    - Settings customization
    - Email template management
+   - Service categories
+   - Calendar view of all bookings and blocked dates
+   - Conflict detection for overlapping bookings
 
 2. **Testing and Refinement**
    - End-to-end testing
