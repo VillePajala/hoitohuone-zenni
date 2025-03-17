@@ -15,9 +15,10 @@ interface BlockedDate {
 
 interface BlockedDatesProps {
   selectedDate?: Date;
+  onDateChange?: (date: Date) => void;
 }
 
-export default function BlockedDates({ selectedDate }: BlockedDatesProps) {
+export default function BlockedDates({ selectedDate, onDateChange }: BlockedDatesProps) {
   const [blockedDates, setBlockedDates] = useState<BlockedDate[]>([]);
   const [newReason, setNewReason] = useState('');
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
@@ -205,9 +206,21 @@ export default function BlockedDates({ selectedDate }: BlockedDatesProps) {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           <div>
-            <Label className="block mb-1">Selected Date</Label>
-            <div className="p-2 bg-white border rounded-md">
-              {selectedDate ? formatDate(selectedDate) : 'Please select a date from the calendar'}
+            <Label htmlFor="date-input" className="block mb-1">Selected Date</Label>
+            <Input
+              id="date-input"
+              type="date"
+              value={selectedDate ? selectedDate.toISOString().split('T')[0] : ''}
+              onChange={(e) => {
+                if (e.target.value && onDateChange) {
+                  const newDate = new Date(e.target.value);
+                  onDateChange(newDate);
+                }
+              }}
+              className="block w-full"
+            />
+            <div className="text-xs text-neutral-500 mt-1">
+              Select a date on the calendar or use this field
             </div>
           </div>
 

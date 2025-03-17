@@ -207,7 +207,7 @@ export default function AvailabilityPage() {
                 
                 <TabsContent value="blocked" className="mt-4">
                   <Suspense fallback={<ComponentLoader />}>
-                    {activeTab === "blocked" && <BlockedDates selectedDate={date} />}
+                    {activeTab === "blocked" && <BlockedDates selectedDate={date} onDateChange={setDate} />}
                   </Suspense>
                 </TabsContent>
               </Tabs>
@@ -291,7 +291,7 @@ export default function AvailabilityPage() {
               
               <TabsContent value="blocked" className="mt-4">
                 <Suspense fallback={<ComponentLoader />}>
-                  {activeTab === "blocked" && <BlockedDates selectedDate={date} />}
+                  {activeTab === "blocked" && <BlockedDates selectedDate={date} onDateChange={setDate} />}
                 </Suspense>
               </TabsContent>
             </Tabs>
