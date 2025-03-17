@@ -21,10 +21,11 @@ const getService = React.cache(async (id: string) => {
   }
 });
 
-export default async function EditServicePage({ params }: { params: { id: string } }) {
+export default async function EditServicePage({ params }: { params: { id: string | Promise<string> } }) {
   // Get the service data on the server side
-  const service = await getService(params.id);
+  const id = params.id instanceof Promise ? await params.id : params.id;
+  const service = await getService(id);
   
   // Pass the data to the client component
-  return <EditServiceClient initialService={service} serviceId={params.id} />;
+  return <EditServiceClient initialService={service} serviceId={id} />;
 } 
