@@ -144,7 +144,15 @@ Planned features and improvements:
 
 ## License
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Acknowledgements
+
+- [Next.js](https://nextjs.org/)
+- [Tailwind CSS](https://tailwindcss.com/)
+- [Clerk.js](https://clerk.dev/)
+- [Prisma](https://prisma.io/)
+- [Supabase](https://supabase.com/)
 
 ## Deploy on Vercel
 
