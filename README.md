@@ -1,56 +1,148 @@
-# Hoitohuone Zenni Website
+# Hoitohuone Zenni
 
-A professional website for a health care provider, built with Next.js and React, designed to provide information about healing services and facilitate appointment booking.
+A professional website for an energy healing service provider, featuring a comprehensive booking system, multilingual support, and admin dashboard.
 
 ## Overview
 
-This website serves as a digital presence for an energy healer, offering:
-- Service information and descriptions
-- Easy appointment booking through third-party integration
-- Client testimonials and FAQ
-- Contact capabilities
-- Multi-language support (Finnish primary, English secondary)
+This website serves as a digital presence for Hoitohuone Zenni, offering:
+- Detailed service information with multilingual support (Finnish and English)
+- Integrated booking system for scheduling appointments
+- Admin dashboard for managing services, bookings, and availability
+- Client testimonials and FAQ sections
+- SEO optimization with structured data
+
+## Features
+
+### Public Website
+- **Multilingual Support**: Complete Finnish and English language versions
+- **Service Listings**: Detailed information about available healing services
+- **Booking System**: Step-by-step appointment booking process
+  - Service selection
+  - Date and time slot picking
+  - Customer information collection
+  - Email confirmations
+  - Booking cancellation capability
+- **Testimonials**: Client feedback and success stories
+- **FAQ Section**: Common questions and answers
+- **Responsive Design**: Mobile-friendly interface
+
+### Admin Dashboard
+- **Authentication**: Secure login system using Clerk.js
+- **Booking Management**: View, update, and manage appointments
+- **Services Management**: Create, edit, activate/deactivate services
+- **Analytics**: Track booking patterns and service popularity
+- **Diagnostic Tools**: Troubleshooting endpoints and utilities
 
 ## Technical Stack
 
 ### Frontend
-- React
-- Next.js
-- Tailwind CSS
-- TypeScript
+- **Framework**: Next.js 15.1.7+ (App Router)
+- **UI**: React with TypeScript
+- **Styling**: Tailwind CSS
+- **Authentication**: Clerk.js
+- **State Management**: React Hooks
+
+### Backend
+- **API Routes**: Next.js API routes with middleware
+- **Database ORM**: Prisma
+- **Database**: PostgreSQL (Supabase)
+- **Email**: NodeMailer for email notifications
 
 ### Infrastructure
-- Vercel (Hosting & Deployment)
-- Serverless Architecture
+- **Hosting**: Vercel
+- **Performance**: Edge caching and API optimization
+- **SEO**: Structured data and metadata optimization
 
 ## Project Structure
 
+```
+/src
+  /app             # Next.js App Router pages and layouts
+    /[locale]      # Localized routes (fi and en)
+    /admin         # Admin dashboard
+    /api           # API endpoints
+  /components      # Reusable React components
+  /lib             # Utility functions and shared libraries
+  /middleware.ts   # Request middleware (language handling)
+  /types           # TypeScript type definitions
+/prisma
+  /schema.prisma   # Database schema
+/.documentation    # Project documentation
+```
+
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+- Node.js 18.0.0 or higher
+- npm or yarn
+- PostgreSQL database (local or Supabase)
 
+### Installation
+
+1. Clone the repository:
+```bash
+git clone https://github.com/yourusername/hoitohuone-zenni.git
+cd hoitohuone-zenni
+```
+
+2. Install dependencies:
+```bash
+npm install
+# or
+yarn install
+```
+
+3. Set up environment variables:
+Create a `.env.local` file with the following variables:
+```
+# Database
+DATABASE_URL="postgresql://username:password@localhost:5432/hoitohuone"
+
+# Clerk Authentication
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_publishable_key
+CLERK_SECRET_KEY=your_secret_key
+
+# Email
+EMAIL_SERVER=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USERNAME=your_email@gmail.com
+EMAIL_PASSWORD=your_app_password
+EMAIL_FROM=your_email@gmail.com
+```
+
+4. Run database migrations:
+```bash
+npx prisma migrate dev
+```
+
+5. Start the development server:
 ```bash
 npm run dev
 # or
 yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) to see the application.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Current Status
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The project is currently in active development. Recent updates include:
+- Next.js 15.1.7+ compatibility improvements
+- Services management interface implementation
+- Booking system API enhancements
+- Admin interface improvements
+- Diagnostic and debugging tools
 
-## Learn More
+## Next Steps
 
-To learn more about Next.js, take a look at the following resources:
+Planned features and improvements:
+- Service ordering and categorization
+- Enhanced availability management system
+- Advanced admin dashboard with analytics
+- Comprehensive testing and QA
+- Production deployment optimization
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## License
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
