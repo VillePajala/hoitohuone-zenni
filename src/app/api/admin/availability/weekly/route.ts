@@ -21,6 +21,7 @@ function checkAuth(req: NextRequest) {
 export async function GET(req: NextRequest) {
   try {
     console.log('Fetching weekly availability...');
+    console.log('Using database URL:', process.env.DATABASE_URL);
     
     // Check authentication and return clear error for client
     if (!checkAuth(req)) {
@@ -34,6 +35,10 @@ export async function GET(req: NextRequest) {
     try {
       await prisma.$connect();
       console.log('Database connection successful for availability fetch');
+      
+      // Log database connection details
+      const connectionInfo = await prisma.$queryRaw`PRAGMA database_list`;
+      console.log('Database connection details:', connectionInfo);
     } catch (dbError) {
       console.error('Database connection failed for availability:', dbError);
       return NextResponse.json(
@@ -49,7 +54,17 @@ export async function GET(req: NextRequest) {
       }
     });
     
+    // Log query info (removed toSQL calls that are not available)
+    console.log('Running availability query with orderBy dayOfWeek ascending');
+    
     console.log(`Found ${availability.length} availability slots`);
+    
+    if (availability.length === 0) {
+      // Try a raw query to see if it returns data
+      const rawAvailability = await prisma.$queryRaw`SELECT * FROM "Availability"`;
+      console.log(`Raw query found: ${Array.isArray(rawAvailability) ? rawAvailability.length : 0} records`);
+      console.log('Raw availability data:', rawAvailability);
+    }
     
     return NextResponse.json(availability);
   } catch (error) {

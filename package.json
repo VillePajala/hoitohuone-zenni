@@ -9,7 +9,11 @@
     "lint": "next lint",
     "test": "jest",
     "test:watch": "jest --watch",
-    "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
+    "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts",
+    "setup-availability": "npx ts-node --compiler-options '{\"module\":\"CommonJS\"}' src/scripts/setup-default-availability.ts",
+    "check-availability": "npx ts-node --compiler-options '{\"module\":\"CommonJS\"}' src/scripts/check-availability.ts",
+    "fix-availability": "npx ts-node --compiler-options '{\"module\":\"CommonJS\"}' src/scripts/setup-availability-fixed.ts",
+    "sync-availability": "npx ts-node --compiler-options '{\"module\":\"CommonJS\"}' src/scripts/sync-availability.ts"
   },
   "prisma": {
     "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
