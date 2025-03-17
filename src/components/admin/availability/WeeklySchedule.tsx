@@ -5,8 +5,41 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { TimePicker } from '@/components/ui/time-picker';
-import { Plus, Trash2, Loader2 } from 'lucide-react';
+import { 
+  Plus, 
+  Trash2, 
+  Loader2, 
+  Copy, 
+  ArrowRight, 
+  RotateCcw, 
+  Eraser 
+} from 'lucide-react';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogClose
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 // Type for time slot
 interface TimeSlot {
@@ -35,6 +68,68 @@ const defaultTimeSlot = {
   id: '1',
   startTime: '09:00',
   endTime: '17:00',
+};
+
+// Default business hours schedule
+const defaultBusinessSchedule = {
+  Monday: { enabled: true, timeSlots: [{ id: 'mon-1', startTime: '09:00', endTime: '17:00' }] },
+  Tuesday: { enabled: true, timeSlots: [{ id: 'tue-1', startTime: '09:00', endTime: '17:00' }] },
+  Wednesday: { enabled: true, timeSlots: [{ id: 'wed-1', startTime: '09:00', endTime: '17:00' }] },
+  Thursday: { enabled: true, timeSlots: [{ id: 'thu-1', startTime: '09:00', endTime: '17:00' }] },
+  Friday: { enabled: true, timeSlots: [{ id: 'fri-1', startTime: '09:00', endTime: '17:00' }] },
+  Saturday: { enabled: false, timeSlots: [] },
+  Sunday: { enabled: false, timeSlots: [] },
+};
+
+// Extended business hours schedule
+const extendedBusinessSchedule = {
+  Monday: { 
+    enabled: true, 
+    timeSlots: [
+      { id: 'mon-1', startTime: '08:00', endTime: '12:00' },
+      { id: 'mon-2', startTime: '13:00', endTime: '19:00' }
+    ] 
+  },
+  Tuesday: { 
+    enabled: true, 
+    timeSlots: [
+      { id: 'tue-1', startTime: '08:00', endTime: '12:00' },
+      { id: 'tue-2', startTime: '13:00', endTime: '19:00' }
+    ] 
+  },
+  Wednesday: { 
+    enabled: true, 
+    timeSlots: [
+      { id: 'wed-1', startTime: '08:00', endTime: '12:00' },
+      { id: 'wed-2', startTime: '13:00', endTime: '19:00' }
+    ] 
+  },
+  Thursday: { 
+    enabled: true, 
+    timeSlots: [
+      { id: 'thu-1', startTime: '08:00', endTime: '12:00' },
+      { id: 'thu-2', startTime: '13:00', endTime: '19:00' }
+    ] 
+  },
+  Friday: { 
+    enabled: true, 
+    timeSlots: [
+      { id: 'fri-1', startTime: '08:00', endTime: '16:00' }
+    ] 
+  },
+  Saturday: { enabled: false, timeSlots: [] },
+  Sunday: { enabled: false, timeSlots: [] },
+};
+
+// Weekend schedule
+const weekendSchedule = {
+  Monday: { enabled: false, timeSlots: [] },
+  Tuesday: { enabled: false, timeSlots: [] },
+  Wednesday: { enabled: false, timeSlots: [] },
+  Thursday: { enabled: false, timeSlots: [] },
+  Friday: { enabled: false, timeSlots: [] },
+  Saturday: { enabled: true, timeSlots: [{ id: 'sat-1', startTime: '10:00', endTime: '16:00' }] },
+  Sunday: { enabled: true, timeSlots: [{ id: 'sun-1', startTime: '10:00', endTime: '16:00' }] },
 };
 
 // Days of the week
@@ -81,6 +176,11 @@ export default function WeeklySchedule() {
   
   // Replace useAuth with useAdminAuth
   const { authGet, authPost, isAuthError, isLoading: isAuthLoading } = useAdminAuth();
+
+  // State for copy day dialog
+  const [copyDialogOpen, setCopyDialogOpen] = useState(false);
+  const [sourceDayToCopy, setSourceDayToCopy] = useState<string>('Monday');
+  const [targetDayToCopy, setTargetDayToCopy] = useState<string>('Tuesday');
 
   // Fetch existing availability settings
   useEffect(() => {
@@ -299,6 +399,92 @@ export default function WeeklySchedule() {
     }
   };
 
+  // Copy day settings from one day to another
+  const copyDaySettings = (sourceDay: string, targetDay: string) => {
+    setDays((prev) => {
+      // Create deep copy of source day time slots to prevent reference issues
+      const timeSlotsCopy = prev[sourceDay].timeSlots.map(slot => ({
+        id: `${targetDay.toLowerCase()}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+      }));
+      
+      return {
+        ...prev,
+        [targetDay]: {
+          enabled: prev[sourceDay].enabled,
+          timeSlots: timeSlotsCopy,
+        },
+      };
+    });
+    
+    setMessage({ 
+      text: `Successfully copied ${sourceDay}'s schedule to ${targetDay}`, 
+      type: 'success' 
+    });
+    
+    // Clear message after a few seconds
+    setTimeout(() => {
+      setMessage(null);
+    }, 3000);
+  };
+  
+  // Clear a day's settings
+  const clearDaySettings = (day: string) => {
+    if (confirm(`Are you sure you want to clear all time slots for ${day}?`)) {
+      setDays((prev) => ({
+        ...prev,
+        [day]: {
+          enabled: prev[day].enabled,
+          timeSlots: [], // Remove all time slots
+        },
+      }));
+      
+      setMessage({ 
+        text: `Cleared all time slots for ${day}`, 
+        type: 'success' 
+      });
+      
+      // Clear message after a few seconds
+      setTimeout(() => {
+        setMessage(null);
+      }, 3000);
+    }
+  };
+  
+  // Apply a predefined schedule template
+  const applyScheduleTemplate = (template: 'default' | 'extended' | 'weekend') => {
+    if (confirm(`Are you sure you want to apply the ${template} schedule? This will overwrite your current schedule.`)) {
+      let scheduleTemplate;
+      
+      switch (template) {
+        case 'default':
+          scheduleTemplate = defaultBusinessSchedule;
+          break;
+        case 'extended':
+          scheduleTemplate = extendedBusinessSchedule;
+          break;
+        case 'weekend':
+          scheduleTemplate = weekendSchedule;
+          break;
+        default:
+          scheduleTemplate = defaultBusinessSchedule;
+      }
+      
+      setDays(scheduleTemplate);
+      
+      setMessage({ 
+        text: `Applied ${template} schedule template`, 
+        type: 'success' 
+      });
+      
+      // Clear message after a few seconds
+      setTimeout(() => {
+        setMessage(null);
+      }, 3000);
+    }
+  };
+
   // If there's an auth error, display login prompt
   if (isAuthError) {
     return (
@@ -350,6 +536,96 @@ export default function WeeklySchedule() {
         Configure your regular weekly availability. For exceptions like holidays, use the Blocked Dates tab.
       </div>
 
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="font-medium">Weekly Schedule</h3>
+        
+        <div className="flex space-x-2">
+          {/* Dialog for copying days */}
+          <Dialog open={copyDialogOpen} onOpenChange={setCopyDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm" className="flex items-center">
+                <Copy className="h-4 w-4 mr-1" /> Copy Day
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Copy Day Schedule</DialogTitle>
+                <DialogDescription>
+                  Copy availability settings from one day to another.
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="grid grid-cols-5 items-center gap-4 py-4">
+                <div className="col-span-2">
+                  <Label htmlFor="source-day">From</Label>
+                  <Select value={sourceDayToCopy} onValueChange={setSourceDayToCopy}>
+                    <SelectTrigger id="source-day">
+                      <SelectValue placeholder="Select day" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {daysOfWeek.map((day) => (
+                        <SelectItem key={`source-${day}`} value={day}>{day}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="flex justify-center">
+                  <ArrowRight className="h-4 w-4" />
+                </div>
+                
+                <div className="col-span-2">
+                  <Label htmlFor="target-day">To</Label>
+                  <Select value={targetDayToCopy} onValueChange={setTargetDayToCopy}>
+                    <SelectTrigger id="target-day">
+                      <SelectValue placeholder="Select day" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {daysOfWeek.map((day) => (
+                        <SelectItem key={`target-${day}`} value={day}>{day}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              
+              <DialogFooter>
+                <DialogClose asChild>
+                  <Button variant="secondary">Cancel</Button>
+                </DialogClose>
+                <DialogClose asChild>
+                  <Button onClick={() => copyDaySettings(sourceDayToCopy, targetDayToCopy)}>
+                    Copy Schedule
+                  </Button>
+                </DialogClose>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          
+          {/* Templates dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="flex items-center">
+                <RotateCcw className="h-4 w-4 mr-1" /> Templates
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Apply Template</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => applyScheduleTemplate('default')}>
+                Standard Business Hours (9-5)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => applyScheduleTemplate('extended')}>
+                Extended Business Hours
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => applyScheduleTemplate('weekend')}>
+                Weekend Only Schedule
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+
       {/* Display message if there is one */}
       {message && (
         <div
@@ -379,16 +655,30 @@ export default function WeeklySchedule() {
               </Label>
             </div>
             
-            {days[day].enabled && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => addTimeSlot(day)}
-                className="flex items-center"
-              >
-                <Plus className="h-4 w-4 mr-1" /> Add Time Slot
-              </Button>
-            )}
+            <div className="flex space-x-2">
+              {days[day].enabled && (
+                <>
+                  {days[day].timeSlots.length > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => clearDaySettings(day)}
+                      className="flex items-center text-gray-500"
+                    >
+                      <Eraser className="h-4 w-4 mr-1" /> Clear
+                    </Button>
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => addTimeSlot(day)}
+                    className="flex items-center"
+                  >
+                    <Plus className="h-4 w-4 mr-1" /> Add Time Slot
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
 
           {days[day].enabled && days[day].timeSlots.length > 0 && (
