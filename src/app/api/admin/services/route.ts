@@ -1,10 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getAuth } from '@clerk/nextjs/server';
+
+// Helper function to check authentication
+function checkAuth(req: NextRequest) {
+  // Check if user is authenticated via Clerk
+  const { userId } = getAuth(req);
+  if (userId) return true;
+  
+  // Check for Bearer token
+  const authHeader = req.headers.get('authorization');
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    return true;
+  }
+  
+  return false;
+}
 
 // GET /api/admin/services - Get all services
 export async function GET(req: NextRequest) {
   try {
     console.log('Getting services...');
+    
+    // Check authentication
+    if (!checkAuth(req)) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Please sign in to access this resource' },
+        { status: 401 }
+      );
+    }
     
     // Test database connection
     try {
@@ -34,7 +58,7 @@ export async function GET(req: NextRequest) {
       where,
       orderBy: {
         order: 'asc'
-      }
+      } as any
     });
     
     console.log(`Found ${services.length} services`);
@@ -54,6 +78,16 @@ export async function GET(req: NextRequest) {
 // POST /api/admin/services - Create a new service
 export async function POST(req: NextRequest) {
   try {
+    console.log('Creating new service...');
+    
+    // Check authentication
+    if (!checkAuth(req)) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Please sign in to access this resource' },
+        { status: 401 }
+      );
+    }
+    
     const data = await req.json();
     
     // Validate required fields
@@ -68,13 +102,15 @@ export async function POST(req: NextRequest) {
     const maxOrderService = await prisma.service.findFirst({
       orderBy: {
         order: 'desc'
-      },
+      } as any,
       select: {
         order: true
-      }
+      } as any
     });
     
-    const nextOrder = maxOrderService ? maxOrderService.order + 1 : 0;
+    const nextOrder = maxOrderService && typeof maxOrderService.order === 'number' 
+      ? maxOrderService.order + 1 
+      : 0;
     
     // Create new service with the next order value
     const service = await prisma.service.create({
@@ -90,7 +126,7 @@ export async function POST(req: NextRequest) {
         currency: data.currency || 'EUR',
         active: data.active !== undefined ? data.active : true,
         order: nextOrder
-      }
+      } as any
     });
     
     return NextResponse.json(service, { status: 201 });
@@ -106,6 +142,16 @@ export async function POST(req: NextRequest) {
 // PATCH /api/admin/services/reorder - Update service order
 export async function PATCH(req: NextRequest) {
   try {
+    console.log('Reordering services...');
+    
+    // Check authentication
+    if (!checkAuth(req)) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Please sign in to access this resource' },
+        { status: 401 }
+      );
+    }
+    
     const data = await req.json();
     
     // Validate required fields
@@ -120,7 +166,7 @@ export async function PATCH(req: NextRequest) {
     const updates = data.services.map((service: { id: string, order: number }) => 
       prisma.service.update({
         where: { id: service.id },
-        data: { order: service.order }
+        data: { order: service.order } as any
       })
     );
     

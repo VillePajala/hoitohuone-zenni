@@ -20,11 +20,25 @@ function checkAuth(req: NextRequest) {
 // GET /api/admin/availability/blocked
 export async function GET(req: NextRequest) {
   try {
-    // Check authentication
+    console.log('Fetching blocked dates...');
+    
+    // Check authentication and return clear error for client
     if (!checkAuth(req)) {
       return NextResponse.json(
         { error: 'Unauthorized - Please sign in to access this resource' },
         { status: 401 }
+      );
+    }
+    
+    // Add database connection test
+    try {
+      await prisma.$connect();
+      console.log('Database connection successful for blocked dates fetch');
+    } catch (dbError) {
+      console.error('Database connection failed for blocked dates:', dbError);
+      return NextResponse.json(
+        { error: 'Database connection failed' },
+        { status: 500 }
       );
     }
     
@@ -35,6 +49,8 @@ export async function GET(req: NextRequest) {
       }
     });
     
+    console.log(`Found ${blockedDates.length} blocked dates`);
+    
     return NextResponse.json(blockedDates);
   } catch (error) {
     console.error('Error fetching blocked dates:', error);
@@ -42,13 +58,17 @@ export async function GET(req: NextRequest) {
       { error: 'Failed to fetch blocked dates' },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 }
 
 // POST /api/admin/availability/blocked
 export async function POST(req: NextRequest) {
   try {
-    // Check authentication
+    console.log('Creating new blocked date...');
+    
+    // Check authentication and return clear error for client
     if (!checkAuth(req)) {
       return NextResponse.json(
         { error: 'Unauthorized - Please sign in to access this resource' },
@@ -87,7 +107,9 @@ export async function POST(req: NextRequest) {
 // DELETE /api/admin/availability/blocked
 export async function DELETE(req: NextRequest) {
   try {
-    // Check authentication
+    console.log('Deleting blocked date...');
+    
+    // Check authentication and return clear error for client
     if (!checkAuth(req)) {
       return NextResponse.json(
         { error: 'Unauthorized - Please sign in to access this resource' },

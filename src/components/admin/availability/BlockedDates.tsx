@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Loader2 } from 'lucide-react';
+import { useAdminAuth } from '@/hooks/useAdminAuth';
 
 interface BlockedDate {
   id: string;
@@ -21,34 +22,53 @@ export default function BlockedDates({ selectedDate }: BlockedDatesProps) {
   const [newReason, setNewReason] = useState('');
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Use the custom hook instead of useAuth directly
+  const { 
+    authGet, 
+    authPost, 
+    authDelete, 
+    isAuthError, 
+    isLoading: isAuthLoading 
+  } = useAdminAuth();
 
   // Fetch blocked dates from the API
   useEffect(() => {
     const fetchBlockedDates = async () => {
       try {
         setIsLoading(true);
-        const response = await fetch('/api/admin/availability/blocked');
         
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to fetch blocked dates');
+        // Skip if auth error
+        if (isAuthError) {
+          return;
         }
         
-        const data = await response.json();
-        setBlockedDates(data);
+        // Use authGet instead of fetch with token
+        const data = await authGet('/api/admin/availability/blocked');
+        
+        // Convert date strings to Date objects
+        const processedData = data.map((item: any) => ({
+          ...item,
+          date: new Date(item.date)
+        }));
+        
+        setBlockedDates(processedData);
       } catch (error) {
         console.error('Error fetching blocked dates:', error);
-        setMessage({ 
-          text: error instanceof Error ? error.message : 'Failed to fetch blocked dates', 
-          type: 'error' 
-        });
+        if (!String(error).includes('Authentication') && 
+            !String(error).includes('Unauthorized')) {
+          setMessage({ 
+            text: error instanceof Error ? error.message : 'Failed to fetch blocked dates', 
+            type: 'error' 
+          });
+        }
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchBlockedDates();
-  }, []);
+  }, [authGet, isAuthError]);
 
   // Add a new blocked date
   const addBlockedDate = async () => {
@@ -76,27 +96,17 @@ export default function BlockedDates({ selectedDate }: BlockedDatesProps) {
         return;
       }
 
-      // Make API call to block the date
-      const response = await fetch('/api/admin/availability/blocked', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          date: selectedDate.toISOString(),
-          reason: newReason,
-        }),
+      // Use authPost instead of fetch with token
+      const newBlockedDate = await authPost('/api/admin/availability/blocked', {
+        date: selectedDate.toISOString(),
+        reason: newReason,
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to block date');
-      }
-
-      const newBlockedDate = await response.json();
       
-      // Update the local state
-      setBlockedDates([...blockedDates, newBlockedDate]);
+      // Update the local state with converted date
+      setBlockedDates([...blockedDates, {
+        ...newBlockedDate,
+        date: new Date(newBlockedDate.date)
+      }]);
       setNewReason('');
       setMessage({ text: 'Date blocked successfully!', type: 'success' });
       
@@ -106,10 +116,13 @@ export default function BlockedDates({ selectedDate }: BlockedDatesProps) {
       }, 3000);
     } catch (error) {
       console.error('Error blocking date:', error);
-      setMessage({ 
-        text: error instanceof Error ? error.message : 'An unexpected error occurred', 
-        type: 'error' 
-      });
+      if (!String(error).includes('Authentication') && 
+          !String(error).includes('Unauthorized')) {
+        setMessage({ 
+          text: error instanceof Error ? error.message : 'An unexpected error occurred', 
+          type: 'error' 
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -120,19 +133,8 @@ export default function BlockedDates({ selectedDate }: BlockedDatesProps) {
     try {
       setIsLoading(true);
       
-      // Make API call to remove the blocked date
-      const response = await fetch('/api/admin/availability/blocked', {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ id }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to remove blocked date');
-      }
+      // Use authDelete instead of fetch with token
+      await authDelete('/api/admin/availability/blocked', { id });
       
       // Update the local state
       setBlockedDates(blockedDates.filter(date => date.id !== id));
@@ -144,10 +146,13 @@ export default function BlockedDates({ selectedDate }: BlockedDatesProps) {
       }, 3000);
     } catch (error) {
       console.error('Error removing blocked date:', error);
-      setMessage({ 
-        text: error instanceof Error ? error.message : 'An unexpected error occurred', 
-        type: 'error' 
-      });
+      if (!String(error).includes('Authentication') && 
+          !String(error).includes('Unauthorized')) {
+        setMessage({ 
+          text: error instanceof Error ? error.message : 'An unexpected error occurred', 
+          type: 'error' 
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -160,6 +165,34 @@ export default function BlockedDates({ selectedDate }: BlockedDatesProps) {
       day: 'numeric',
     });
   };
+
+  // If there's an auth error, display login prompt
+  if (isAuthError) {
+    return (
+      <div className="p-6 text-center">
+        <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-md mb-4 text-yellow-800">
+          <p className="font-medium">Authentication Required</p>
+          <p className="text-sm mt-1">Please sign in to manage blocked dates</p>
+        </div>
+        <Button 
+          onClick={() => window.location.href = '/admin/sign-in'}
+          className="mt-2"
+        >
+          Sign In
+        </Button>
+      </div>
+    );
+  }
+
+  // If still loading, show loading state
+  if ((isLoading || isAuthLoading) && blockedDates.length === 0) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-slate-500" />
+        <span className="ml-2 text-slate-500">Loading blocked dates...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -189,7 +222,12 @@ export default function BlockedDates({ selectedDate }: BlockedDatesProps) {
           </div>
         </div>
 
-        <Button onClick={addBlockedDate} disabled={!selectedDate}>
+        <Button 
+          onClick={addBlockedDate} 
+          disabled={!selectedDate || isLoading}
+          className="relative"
+        >
+          {isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
           Block This Date
         </Button>
 
@@ -228,6 +266,7 @@ export default function BlockedDates({ selectedDate }: BlockedDatesProps) {
                     variant="ghost"
                     size="icon"
                     onClick={() => removeBlockedDate(blockedDate.id)}
+                    disabled={isLoading}
                     className="text-red-500 hover:text-red-700 hover:bg-red-50"
                   >
                     <Trash2 className="h-4 w-4" />
