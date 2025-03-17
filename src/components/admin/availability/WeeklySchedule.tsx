@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, Fragment } from 'react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -12,7 +12,8 @@ import {
   Copy, 
   ArrowRight, 
   RotateCcw, 
-  Eraser 
+  Eraser,
+  AlertCircle
 } from 'lucide-react';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { 
@@ -40,12 +41,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 // Type for time slot
 interface TimeSlot {
   id: string;
   startTime: string;
   endTime: string;
+  hasConflict?: boolean;
+  isInvalid?: boolean;
+  conflictMessage?: string;
 }
 
 // Type for day setting
@@ -182,6 +192,9 @@ export default function WeeklySchedule() {
   const [sourceDayToCopy, setSourceDayToCopy] = useState<string>('Monday');
   const [targetDayToCopy, setTargetDayToCopy] = useState<string>('Tuesday');
 
+  // Add state to track when validation is needed
+  const [shouldValidate, setShouldValidate] = useState(false);
+
   // Fetch existing availability settings
   useEffect(() => {
     const fetchAvailability = async () => {
@@ -235,6 +248,8 @@ export default function WeeklySchedule() {
           });
           
           setDays(newDays);
+          // Trigger validation after loading data
+          setShouldValidate(true);
           console.log('Loaded availability settings:', newDays);
         }
       } catch (err) {
@@ -262,6 +277,7 @@ export default function WeeklySchedule() {
           : [],
       },
     }));
+    setShouldValidate(true);
   };
 
   // Add a new time slot for a day
@@ -280,6 +296,7 @@ export default function WeeklySchedule() {
         ],
       },
     }));
+    setShouldValidate(true);
   };
 
   // Remove a time slot
@@ -291,9 +308,104 @@ export default function WeeklySchedule() {
         timeSlots: prev[day].timeSlots.filter((slot) => slot.id !== id),
       },
     }));
+    setShouldValidate(true);
   };
 
-  // Update a time slot
+  // Helper function to convert time string to minutes
+  const timeToMinutes = (time: string): number => {
+    const [hours, minutes] = time.split(':').map(Number);
+    return hours * 60 + minutes;
+  };
+
+  // Validate all time slots in each day and mark conflicts
+  const validateAllTimeSlots = () => {
+    setDays((prev) => {
+      const newDays = { ...prev };
+      
+      // For each day
+      for (const day of daysOfWeek) {
+        if (!newDays[day].enabled || newDays[day].timeSlots.length <= 1) {
+          // If day is disabled or has 0-1 slots, clear any validation flags
+          newDays[day].timeSlots = newDays[day].timeSlots.map(slot => ({
+            ...slot,
+            hasConflict: false,
+            isInvalid: false,
+            conflictMessage: undefined
+          }));
+          continue;
+        }
+        
+        // Sort time slots by start time
+        const sortedSlots = [...newDays[day].timeSlots].sort((a, b) => 
+          timeToMinutes(a.startTime) - timeToMinutes(b.startTime)
+        );
+        
+        // Map of slot IDs to their validation status
+        const slotValidation: Record<string, { 
+          hasConflict: boolean; 
+          isInvalid: boolean; 
+          conflictMessage?: string 
+        }> = {};
+        
+        // Initialize all slots as valid
+        sortedSlots.forEach(slot => {
+          slotValidation[slot.id] = { hasConflict: false, isInvalid: false };
+        });
+        
+        // Check each slot for internal time validity (end > start)
+        sortedSlots.forEach(slot => {
+          const startMinutes = timeToMinutes(slot.startTime);
+          const endMinutes = timeToMinutes(slot.endTime);
+          
+          if (endMinutes <= startMinutes) {
+            slotValidation[slot.id].isInvalid = true;
+            slotValidation[slot.id].conflictMessage = 
+              `End time (${slot.endTime}) must be after start time (${slot.startTime})`;
+          }
+        });
+        
+        // Check for overlaps between slots
+        for (let i = 0; i < sortedSlots.length - 1; i++) {
+          const currentSlot = sortedSlots[i];
+          const nextSlot = sortedSlots[i + 1];
+          
+          const currentEnd = timeToMinutes(currentSlot.endTime);
+          const nextStart = timeToMinutes(nextSlot.startTime);
+          
+          if (currentEnd > nextStart) {
+            // Mark both slots as having conflicts
+            slotValidation[currentSlot.id].hasConflict = true;
+            slotValidation[nextSlot.id].hasConflict = true;
+            
+            slotValidation[currentSlot.id].conflictMessage = 
+              `Overlaps with ${nextSlot.startTime}-${nextSlot.endTime}`;
+            slotValidation[nextSlot.id].conflictMessage = 
+              `Overlaps with ${currentSlot.startTime}-${currentSlot.endTime}`;
+          }
+        }
+        
+        // Apply validation to all time slots
+        newDays[day].timeSlots = newDays[day].timeSlots.map(slot => ({
+          ...slot,
+          hasConflict: slotValidation[slot.id]?.hasConflict || false,
+          isInvalid: slotValidation[slot.id]?.isInvalid || false,
+          conflictMessage: slotValidation[slot.id]?.conflictMessage
+        }));
+      }
+      
+      return newDays;
+    });
+  };
+
+  // Run validation only when shouldValidate flag is true
+  useEffect(() => {
+    if (shouldValidate) {
+      validateAllTimeSlots();
+      setShouldValidate(false);
+    }
+  }, [shouldValidate]);
+
+  // Update time slot with validation
   const updateTimeSlot = (
     day: string,
     id: string,
@@ -305,62 +417,62 @@ export default function WeeklySchedule() {
       [day]: {
         ...prev[day],
         timeSlots: prev[day].timeSlots.map((slot) =>
-          slot.id === id ? { ...slot, [field]: value } : slot
+          slot.id === id ? { 
+            ...slot, 
+            [field]: value,
+            // Clear previous validation since we're updating
+            hasConflict: undefined,
+            isInvalid: undefined,
+            conflictMessage: undefined
+          } : slot
         ),
       },
     }));
+    setShouldValidate(true);
   };
 
-  // Helper function to convert time string to minutes
-  const timeToMinutes = (time: string): number => {
-    const [hours, minutes] = time.split(':').map(Number);
-    return hours * 60 + minutes;
-  };
-
-  // Check if time slots overlap
-  const checkOverlappingTimeSlots = (): { day: string; message: string } | null => {
+  // Check if there are any validation issues
+  const hasValidationIssues = (): boolean => {
     for (const day of daysOfWeek) {
-      if (!days[day].enabled || days[day].timeSlots.length <= 1) continue;
+      if (!days[day].enabled) continue;
       
-      // Sort time slots by start time
-      const sortedSlots = [...days[day].timeSlots].sort((a, b) => 
-        timeToMinutes(a.startTime) - timeToMinutes(b.startTime)
+      const hasIssues = days[day].timeSlots.some(
+        slot => slot.hasConflict || slot.isInvalid
       );
       
-      // Check for overlaps
-      for (let i = 0; i < sortedSlots.length - 1; i++) {
-        const currentSlot = sortedSlots[i];
-        const nextSlot = sortedSlots[i + 1];
-        
-        const currentEnd = timeToMinutes(currentSlot.endTime);
-        const nextStart = timeToMinutes(nextSlot.startTime);
-        
-        if (currentEnd > nextStart) {
-          return {
-            day,
-            message: `Time slots overlap on ${day}: ${currentSlot.startTime}-${currentSlot.endTime} and ${nextSlot.startTime}-${nextSlot.endTime}`
-          };
-        }
+      if (hasIssues) return true;
+    }
+    
+    return false;
+  };
+
+  // Check if time slots overlap - modified to use the validation flags
+  const checkOverlappingTimeSlots = (): { day: string; message: string } | null => {
+    for (const day of daysOfWeek) {
+      if (!days[day].enabled) continue;
+      
+      const invalidSlot = days[day].timeSlots.find(slot => slot.isInvalid);
+      if (invalidSlot) {
+        return {
+          day,
+          message: `Invalid time range on ${day}: ${invalidSlot.startTime}-${invalidSlot.endTime}.` +
+                  ` End time must be after start time.`
+        };
       }
       
-      // Check for invalid time slots (end time before start time)
-      for (const slot of sortedSlots) {
-        const startMinutes = timeToMinutes(slot.startTime);
-        const endMinutes = timeToMinutes(slot.endTime);
-        
-        if (endMinutes <= startMinutes) {
-          return {
-            day,
-            message: `Invalid time slot on ${day}: ${slot.startTime}-${slot.endTime}. End time must be after start time.`
-          };
-        }
+      const conflictingSlot = days[day].timeSlots.find(slot => slot.hasConflict);
+      if (conflictingSlot) {
+        return {
+          day,
+          message: `Time slots overlap on ${day}. Please fix the highlighted conflicts.`
+        };
       }
     }
     
     return null;
   };
 
-  // Save all settings
+  // Save all settings - with validation check
   const saveSettings = async () => {
     try {
       // Validate time slots
@@ -427,6 +539,8 @@ export default function WeeklySchedule() {
     setTimeout(() => {
       setMessage(null);
     }, 3000);
+    
+    setShouldValidate(true);
   };
   
   // Clear a day's settings
@@ -449,6 +563,8 @@ export default function WeeklySchedule() {
       setTimeout(() => {
         setMessage(null);
       }, 3000);
+      
+      setShouldValidate(true);
     }
   };
   
@@ -482,6 +598,8 @@ export default function WeeklySchedule() {
       setTimeout(() => {
         setMessage(null);
       }, 3000);
+      
+      setShouldValidate(true);
     }
   };
 
@@ -684,26 +802,62 @@ export default function WeeklySchedule() {
           {days[day].enabled && days[day].timeSlots.length > 0 && (
             <div className="space-y-3">
               {days[day].timeSlots.map((slot) => (
-                <div key={slot.id} className="flex items-center space-x-2">
+                <div 
+                  key={slot.id} 
+                  className={`flex items-center space-x-2 p-3 rounded-md ${
+                    slot.hasConflict || slot.isInvalid
+                      ? 'bg-red-50 border border-red-200'
+                      : ''
+                  }`}
+                >
+                  {(slot.hasConflict || slot.isInvalid) && (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger>
+                          <AlertCircle className="h-5 w-5 text-red-500 mr-2 flex-shrink-0" />
+                        </TooltipTrigger>
+                        <TooltipContent className="bg-red-50 border border-red-200 text-red-700 p-2 max-w-xs">
+                          <p>{slot.conflictMessage || 'Time conflict detected'}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+                  
                   <div className="flex-1 grid grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor={`${day}-${slot.id}-start`} className="text-xs mb-1 block">
+                      <Label 
+                        htmlFor={`${day}-${slot.id}-start`} 
+                        className={`text-xs mb-1 block ${
+                          slot.hasConflict || slot.isInvalid ? 'text-red-700 font-medium' : ''
+                        }`}
+                      >
                         Start Time
                       </Label>
                       <TimePicker
                         id={`${day}-${slot.id}-start`}
                         value={slot.startTime}
                         onChange={(value) => updateTimeSlot(day, slot.id, 'startTime', value)}
+                        className={slot.hasConflict || slot.isInvalid 
+                          ? 'border-red-300 focus-visible:ring-red-500' 
+                          : ''}
                       />
                     </div>
                     <div>
-                      <Label htmlFor={`${day}-${slot.id}-end`} className="text-xs mb-1 block">
+                      <Label 
+                        htmlFor={`${day}-${slot.id}-end`} 
+                        className={`text-xs mb-1 block ${
+                          slot.hasConflict || slot.isInvalid ? 'text-red-700 font-medium' : ''
+                        }`}
+                      >
                         End Time
                       </Label>
                       <TimePicker
                         id={`${day}-${slot.id}-end`}
                         value={slot.endTime}
                         onChange={(value) => updateTimeSlot(day, slot.id, 'endTime', value)}
+                        className={slot.hasConflict || slot.isInvalid 
+                          ? 'border-red-300 focus-visible:ring-red-500' 
+                          : ''}
                       />
                     </div>
                   </div>
@@ -737,13 +891,49 @@ export default function WeeklySchedule() {
       <div className="flex justify-end">
         <Button 
           onClick={saveSettings} 
-          disabled={isSaving}
+          disabled={isSaving || hasValidationIssues()}
           className="relative"
         >
           {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
           {isSaving ? 'Saving...' : 'Save Settings'}
         </Button>
       </div>
+      
+      {hasValidationIssues() && (
+        <div className="bg-red-50 border border-red-300 text-red-700 p-3 rounded-md mt-2">
+          <div className="flex items-start">
+            <AlertCircle className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="font-medium">Please fix the following issues before saving:</p>
+              <ul className="list-disc list-inside mt-1 text-sm">
+                {daysOfWeek.map(day => {
+                  if (!days[day].enabled) return null;
+                  
+                  const invalidSlots = days[day].timeSlots.filter(slot => slot.isInvalid);
+                  const conflictSlots = days[day].timeSlots.filter(slot => slot.hasConflict);
+                  
+                  return (
+                    <Fragment key={day}>
+                      {invalidSlots.length > 0 && (
+                        <li>
+                          <span className="font-medium">{day}</span>: 
+                          {invalidSlots.length} time {invalidSlots.length === 1 ? 'slot has' : 'slots have'} invalid time ranges
+                        </li>
+                      )}
+                      {conflictSlots.length > 0 && invalidSlots.length === 0 && (
+                        <li>
+                          <span className="font-medium">{day}</span>: 
+                          Overlapping time slots detected
+                        </li>
+                      )}
+                    </Fragment>
+                  );
+                })}
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 } 
