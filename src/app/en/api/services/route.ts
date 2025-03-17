@@ -6,17 +6,15 @@ export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
 export const revalidate = 0;
 
-// GET /api/services - Get all active services
+// GET /en/api/services - Forward to the main API endpoint for services
 export async function GET() {
-  console.log('Services API called:', new Date().toISOString());
-  console.log('Current route: /api/services');
+  console.log('English services API called:', new Date().toISOString());
+  console.log('Current route: /en/api/services (redirecting to main API)');
   
   try {
-    console.log('Fetching services from database...');
-    
     // Connect to database
     await prisma.$connect();
-    console.log('Database connected for services fetch');
+    console.log('Database connected for English services fetch');
     
     const services = await prisma.service.findMany({
       where: {
@@ -27,11 +25,7 @@ export async function GET() {
       }
     });
     
-    console.log(`Found ${services.length} active services`);
-    
-    if (services.length === 0) {
-      console.warn('No active services found in database');
-    }
+    console.log(`Found ${services.length} active services in English route`);
     
     return NextResponse.json(services, {
       headers: {
@@ -41,7 +35,7 @@ export async function GET() {
       }
     });
   } catch (error) {
-    console.error('Error fetching services:', error);
+    console.error('Error fetching services in English route:', error);
     return NextResponse.json(
       { error: 'Failed to fetch services', details: error instanceof Error ? error.message : 'Unknown error' },
       { 
@@ -56,7 +50,7 @@ export async function GET() {
   } finally {
     try {
       await prisma.$disconnect();
-      console.log('Database disconnected after services fetch');
+      console.log('Database disconnected after English services fetch');
     } catch (disconnectError) {
       console.error('Error disconnecting from database:', disconnectError);
     }
