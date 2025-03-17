@@ -4,7 +4,7 @@
 This document outlines the comprehensive plan for implementing the booking system for Hoitohuone Zenni. The booking system will allow customers to schedule appointments for various energy healing services offered by the business. It will be implemented using Next.js for the frontend, Prisma ORM for database interactions, and Supabase PostgreSQL as the database provider.
 
 ## Current Implementation Status
-**Last Updated:** 2024-03-19
+**Last Updated:** 2024-03-17
 
 ### Completed
 1. **Database Schema and Setup**
@@ -25,6 +25,9 @@ This document outlines the comprehensive plan for implementing the booking syste
    - POST /api/bookings endpoint to create bookings ✓
    - Validation and error handling for booking submissions ✓
    - POST /api/bookings/cancel endpoint to cancel bookings ✓
+   - GET /api/services with optimized caching control ✓
+   - Locale-aware API endpoints for services ✓
+   - Debug routes for API diagnostics ✓
 
 4. **Advanced Features**
    - Email notification system ✓
@@ -50,10 +53,12 @@ This document outlines the comprehensive plan for implementing the booking syste
    - Navigation between admin sections ✓
    - Loading states with skeleton loaders ✓
    - Dashboard page with booking overview ✓
+   - Bookings management interface ✓
+   - Bookings detail view ✓
+   - Debug tools for API diagnostics ✓
 
 ### In Progress
 1. **Admin Dashboard Features**
-   - Bookings management interface (partly implemented)
    - Services management interface (partly implemented)
 
 2. **Availability Management**
@@ -77,11 +82,11 @@ This document outlines the comprehensive plan for implementing the booking syste
    - Setup of production database
 
 ## Next Steps
-1. **Complete Admin Booking Management**
-   - Finish the booking management interface
-   - Implement booking filtering and search
-   - Add booking status updates
-   - Enable booking notes and admin-side editing
+1. **Refine Booking Management**
+   - Implement booking search and advanced filtering
+   - Add booking date range selection
+   - Add export functionality for bookings
+   - Improve responsive design for mobile admin usage
 
 2. **Complete Availability Management**
    - Finalize weekly schedule editor functionality
@@ -98,6 +103,44 @@ This document outlines the comprehensive plan for implementing the booking syste
    - Implement end-to-end testing with Cypress or Playwright
    - Performance optimization and load testing
    - Deploy to production with proper environment configuration
+
+## Recent Technical Improvements
+
+### Next.js 15.1.7+ Compatibility
+The application has been updated to support Next.js 15.1.7+ which introduced a change to params handling:
+
+1. **Params as Promise**
+   - In Next.js 15.1.7+, `params` in page components is now a Promise that needs to be unwrapped
+   - All dynamic route pages have been updated to use `React.use()` to properly unwrap params
+   - Proper TypeScript interfaces added for params objects
+
+2. **API Routes Enhancement**
+   - Added `export const dynamic = 'force-dynamic'` to API routes
+   - Added `fetchCache = 'force-no-store'` and `revalidate = 0` directives
+   - Implemented proper cache control headers in API responses
+   - Created duplicate API endpoints for locale paths to handle middleware redirects
+
+### Middleware Improvements
+1. **Redirect Logic**
+   - Updated middleware to skip locale redirects for API routes
+   - Enhanced public routes configuration for better authentication management
+   - Added debugging tools to track middleware behavior
+
+2. **Error Handling**
+   - Improved console error handling in admin layout
+   - Added more detailed error logging across API endpoints
+   - Created fallback mechanisms for service and booking data loading
+
+### Diagnostic Tools
+1. **Debug Endpoints**
+   - Added `/api/debug/services-check` for diagnosing service API issues
+   - Created `/api/debug/seed` to populate test data
+   - Implemented `/api/admin/bookings/status` for booking API diagnostics
+
+2. **User Interface**
+   - Added debug pages in admin interface
+   - Implemented fallback UI for data loading failures
+   - Created better error visualization
 
 ## Architecture & Data Flow
 
@@ -405,35 +448,25 @@ This booking system implementation plan provides a comprehensive roadmap for bui
 ## Implementation Status
 
 ### Completed
-- Database schema setup with Prisma
-- Created necessary database models for bookings, services, etc.
-- Basic frontend components (calendar, booking form)
-- Multi-language support (Finnish/English)
-- API routes for booking creation
-- Email notification system
-  - Confirmation emails to customers
-  - Notification emails to administrators
-  - Gmail SMTP configuration with environment variables
-- Booking cancellation functionality
-  - Cancellation page for customers
-  - API endpoint for cancellation
-  - Email notifications for cancellations
-- Admin dashboard (in progress)
-  - Admin login page
-  - Admin dashboard overview page
-  - Bookings listing and management interface
-  - Admin layout with navigation
+- Database schema for services, bookings, and availability
+- Basic frontend components for booking form
+- API routes for services and bookings
+- Admin interface structure
+- Authentication with Clerk.js
+- Email notifications for booking confirmations
+- Basic admin dashboard
+- Services management interface with create, edit, delete functionality
+- Service activation/deactivation
 
 ### In Progress
-- Admin dashboard
-  - Availability management
-  - Services management
-  - Settings and configuration
+- Admin dashboard enhancements
+- Availability management system
+- Booking management interface improvements
 
 ### Not Started
-- Analytics and reporting
-- Customer account management
-- Advanced calendar integrations (e.g., Google Calendar, iCal)
+- Advanced admin features (analytics, reporting)
+- Comprehensive testing
+- Production deployment
 
 ## Next Steps
 

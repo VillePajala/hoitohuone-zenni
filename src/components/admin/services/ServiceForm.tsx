@@ -25,9 +25,10 @@ type ServiceFormProps = {
   service: Service | null;
   onSubmit: (service: Service) => void;
   onCancel: () => void;
+  loading?: boolean;
 };
 
-export default function ServiceForm({ service, onSubmit, onCancel }: ServiceFormProps) {
+export default function ServiceForm({ service, onSubmit, onCancel, loading: externalLoading }: ServiceFormProps) {
   const [formData, setFormData] = useState<Omit<Service, 'id'> & { id?: string }>({
     name: '',
     nameEn: '',
@@ -42,7 +43,7 @@ export default function ServiceForm({ service, onSubmit, onCancel }: ServiceForm
   });
   
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState<boolean>(false);
+  const [internalLoading, setInternalLoading] = useState<boolean>(false);
   const [apiError, setApiError] = useState<string | null>(null);
   
   useEffect(() => {
@@ -138,36 +139,21 @@ export default function ServiceForm({ service, onSubmit, onCancel }: ServiceForm
       return;
     }
     
-    setLoading(true);
+    if (!externalLoading) {
+      setInternalLoading(true);
+    }
     setApiError(null);
     
     try {
-      const isEditing = !!service;
-      const url = isEditing 
-        ? `/api/admin/services/${service.id}` 
-        : '/api/admin/services';
-      
-      const response = await fetch(url, {
-        method: isEditing ? 'PUT' : 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to save service');
-      }
-      
-      const savedService = await response.json();
-      onSubmit(savedService);
+      onSubmit(formData as Service);
     } catch (err) {
       const error = err as Error;
       setApiError(error.message || 'An error occurred. Please try again.');
       console.error('Error saving service:', err);
     } finally {
-      setLoading(false);
+      if (!externalLoading) {
+        setInternalLoading(false);
+      }
     }
   };
 
@@ -332,11 +318,11 @@ export default function ServiceForm({ service, onSubmit, onCancel }: ServiceForm
       </div>
 
       <div className="flex justify-end space-x-3 pt-4">
-        <Button type="button" variant="outline" onClick={onCancel}>
+        <Button type="button" variant="outline" onClick={onCancel} disabled={externalLoading || internalLoading}>
           Cancel
         </Button>
-        <Button type="submit" disabled={loading}>
-          {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+        <Button type="submit" disabled={externalLoading || internalLoading}>
+          {(externalLoading || internalLoading) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           {service ? 'Update' : 'Create'} Service
         </Button>
       </div>

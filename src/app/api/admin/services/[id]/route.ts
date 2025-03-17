@@ -17,10 +17,20 @@ function checkAuth(req: NextRequest) {
   return false;
 }
 
+// Helper function to handle unwrapping params
+async function getParamId(params: { id: string | Promise<string> }): Promise<string> {
+  // If id is a Promise, await it
+  if (params.id instanceof Promise) {
+    return await params.id;
+  }
+  // Otherwise, just return it
+  return params.id;
+}
+
 // GET /api/admin/services/[id]
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string | Promise<string> } }
 ) {
   try {
     // Check authentication
@@ -31,7 +41,7 @@ export async function GET(
       );
     }
     
-    const id = params.id;
+    const id = await getParamId(params);
     
     const service = await prisma.service.findUnique({
       where: { id }
@@ -54,10 +64,10 @@ export async function GET(
   }
 }
 
-// PUT /api/admin/services/[id] - Update service (complete update)
+// PUT /api/admin/services/[id] - Complete update
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string | Promise<string> } }
 ) {
   try {
     // Check authentication
@@ -67,9 +77,8 @@ export async function PUT(
         { status: 401 }
       );
     }
-    
-    const id = params.id;
-    const body = await req.json();
+
+    const id = await getParamId(params);
     
     // Check if service exists
     const existingService = await prisma.service.findUnique({
@@ -83,33 +92,31 @@ export async function PUT(
       );
     }
     
-    // Validate required fields
-    const requiredFields = ['name', 'nameEn', 'nameFi', 'description', 
-                           'descriptionEn', 'descriptionFi', 'duration', 'price'];
+    // Parse request body
+    const data = await req.json();
     
-    for (const field of requiredFields) {
-      if (!body[field] && body[field] !== 0) {
-        return NextResponse.json(
-          { error: `${field} is required` },
-          { status: 400 }
-        );
-      }
+    // Validate required fields
+    if (!data.name || !data.duration || typeof data.active !== 'boolean') {
+      return NextResponse.json(
+        { error: 'Missing required fields' },
+        { status: 400 }
+      );
     }
     
-    // Update the service
+    // Update service
     const updatedService = await prisma.service.update({
       where: { id },
       data: {
-        name: body.name,
-        nameEn: body.nameEn,
-        nameFi: body.nameFi,
-        description: body.description,
-        descriptionEn: body.descriptionEn,
-        descriptionFi: body.descriptionFi,
-        duration: body.duration,
-        price: body.price,
-        currency: body.currency || 'EUR',
-        active: body.active !== undefined ? body.active : existingService.active
+        name: data.name,
+        nameEn: data.nameEn || data.name,
+        nameFi: data.nameFi || data.name,
+        description: data.description,
+        descriptionEn: data.descriptionEn || data.description,
+        descriptionFi: data.descriptionFi || data.description,
+        duration: data.duration,
+        price: data.price,
+        currency: data.currency || 'EUR',
+        active: data.active
       }
     });
     
@@ -123,10 +130,10 @@ export async function PUT(
   }
 }
 
-// PATCH /api/admin/services/[id] - Update service (partial update)
+// PATCH /api/admin/services/[id] - Partial update
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string | Promise<string> } }
 ) {
   try {
     // Check authentication
@@ -137,8 +144,7 @@ export async function PATCH(
       );
     }
     
-    const id = params.id;
-    const body = await req.json();
+    const id = await getParamId(params);
     
     // Check if service exists
     const existingService = await prisma.service.findUnique({
@@ -152,21 +158,13 @@ export async function PATCH(
       );
     }
     
-    // Update the service with only the provided fields
+    // Parse request body
+    const data = await req.json();
+    
+    // Update service with only provided fields
     const updatedService = await prisma.service.update({
       where: { id },
-      data: {
-        ...(body.name !== undefined && { name: body.name }),
-        ...(body.nameEn !== undefined && { nameEn: body.nameEn }),
-        ...(body.nameFi !== undefined && { nameFi: body.nameFi }),
-        ...(body.description !== undefined && { description: body.description }),
-        ...(body.descriptionEn !== undefined && { descriptionEn: body.descriptionEn }),
-        ...(body.descriptionFi !== undefined && { descriptionFi: body.descriptionFi }),
-        ...(body.duration !== undefined && { duration: body.duration }),
-        ...(body.price !== undefined && { price: body.price }),
-        ...(body.currency !== undefined && { currency: body.currency }),
-        ...(body.active !== undefined && { active: body.active })
-      }
+      data
     });
     
     return NextResponse.json(updatedService);
@@ -182,7 +180,7 @@ export async function PATCH(
 // DELETE /api/admin/services/[id]
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string | Promise<string> } }
 ) {
   try {
     // Check authentication
@@ -193,7 +191,7 @@ export async function DELETE(
       );
     }
     
-    const id = params.id;
+    const id = await getParamId(params);
     
     // Check if service exists
     const existingService = await prisma.service.findUnique({
@@ -206,32 +204,31 @@ export async function DELETE(
         { status: 404 }
       );
     }
-
-    // Check if service has any bookings
+    
+    // Check if the service has bookings
     const bookingsCount = await prisma.booking.count({
       where: { serviceId: id }
     });
-
+    
     if (bookingsCount > 0) {
-      // If there are bookings, we should not delete the service but just mark it as inactive
-      await prisma.service.update({
+      // Instead of deleting, just mark as inactive
+      const updatedService = await prisma.service.update({
         where: { id },
         data: { active: false }
       });
-
+      
       return NextResponse.json({
-        message: 'Service has existing bookings. It has been marked as inactive instead of being deleted.'
+        ...updatedService,
+        message: 'Service has existing bookings. It has been deactivated instead of deleted.'
       });
     }
     
-    // If no bookings, delete the service
+    // Delete service if no bookings
     await prisma.service.delete({
       where: { id }
     });
     
-    return NextResponse.json({
-      message: 'Service deleted successfully'
-    });
+    return NextResponse.json({ message: 'Service deleted successfully' });
   } catch (error) {
     console.error('Error deleting service:', error);
     return NextResponse.json(
