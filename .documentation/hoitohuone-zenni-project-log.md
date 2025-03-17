@@ -1,5 +1,42 @@
 # Hoitohuone Zenni - Project Log
 
+## March 17, 2024
+
+### Next.js 15.1.7+ Compatibility Updates
+- Fixed parameter handling in dynamic routes by updating to handle parameters as Promises
+- Updated route files with proper type definitions for parameters
+- Improved error handling in admin layout to handle Promise-based parameters
+- Added proper typings for route parameters in all dynamic routes
+
+### Booking System API Enhancements
+- Fixed middleware for API routes to properly handle authentication
+- Created locale-aware API endpoints for booking system
+- Added cache control headers to improve performance
+- Implemented robust error handling for booking-related API endpoints
+
+### Diagnostic and Debugging Tools
+- Created `/api/debug/services-check` endpoint to verify service availability
+- Added debug data endpoint for bookings to help troubleshoot issues
+- Implemented status endpoint for booking system health checks
+- Created debug UI pages for easier troubleshooting
+
+### Admin Interface Improvements
+- Enhanced error handling in booking management interface
+- Added fallback mechanisms for data loading failures
+- Improved booking details view with better error states
+- Added direct access to diagnostic tools from admin interface
+
+## March 18, 2024
+
+### Services Management Interface Enhancements
+- Created dedicated pages for service creation and editing
+- Implemented proper routing between services list and edit/create pages
+- Added service activation/deactivation functionality
+- Improved error handling and loading states
+- Enhanced the services list with a more user-friendly table layout
+- Added confirmation for service deletion
+- Implemented proper form validation for service creation/editing
+
 ## March 3, 2024
 
 ### SEO Implementation

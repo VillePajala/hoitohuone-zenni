@@ -2,16 +2,25 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Fade-in animation */
+/* Fade-in animation - MODIFIED to ensure visibility */
 .fade-in {
-  opacity: 0;
-  transform: translateY(20px);
-  transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+  opacity: 1 !important; /* Always visible */
+  transform: none !important; /* No transform to avoid positioning issues */
+  transition: opacity 0.3s ease;
 }
 
 .fade-in.animate-fade-in {
   opacity: 1;
-  transform: translateY(0);
+  transform: none;
+}
+
+/* NEW - Force visibility for booking components */
+.booking-component-wrapper,
+[class*="booking"] {
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: block !important;
+  transform: none !important;
 }
 
 /* Font variables */
