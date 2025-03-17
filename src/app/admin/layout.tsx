@@ -21,20 +21,25 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const [targetPath, setTargetPath] = useState<string | null>(null);
   const [authError, setAuthError] = useState(false);
 
-  // Handle Clerk auth errors
+  // Handle Clerk auth errors using a safer approach
   useEffect(() => {
-    // Check for Clerk errors in console
-    const originalConsoleError = console.error;
-    console.error = (...args) => {
-      const errorString = args.join(' ');
-      if (errorString.includes('Clerk') || errorString.includes('auth')) {
+    // Use a safer way to detect auth errors
+    const handleError = (event: ErrorEvent) => {
+      const errorMessage = event.message || '';
+      if (
+        (typeof errorMessage === 'string' && 
+        (errorMessage.includes('Clerk') || errorMessage.includes('auth')))
+      ) {
         setAuthError(true);
       }
-      originalConsoleError(...args);
     };
 
+    // Add global error handler
+    window.addEventListener('error', handleError);
+
     return () => {
-      console.error = originalConsoleError;
+      // Clean up
+      window.removeEventListener('error', handleError);
     };
   }, []);
 
