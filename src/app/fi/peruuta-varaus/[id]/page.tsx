@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { format } from 'date-fns';
 import { fi } from 'date-fns/locale';
 import { AlertCircle, CheckCircle2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import * as React from 'react';
 
 // Define booking type
 interface Booking {
@@ -24,11 +25,18 @@ interface Booking {
   };
 }
 
-export default function PeruutaVarausSivu() {
-  const params = useParams();
-  const router = useRouter();
-  const cancellationId = params.id as string;
+// For the page props with params
+interface PageParams {
+  id: string;
+  [key: string]: string;
+}
+
+export default function PeruutaVarausSivu({ params }: { params: Promise<PageParams> }) {
+  // Properly unwrap params Promise
+  const resolvedParams = React.use(params);
+  const cancellationId = resolvedParams.id;
   
+  const router = useRouter();
   const [booking, setBooking] = useState<Booking | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

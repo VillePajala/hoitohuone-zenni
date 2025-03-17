@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { ArrowLeft, Calendar, Clock, Mail, User, Bookmark, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import * as React from 'react';
 
 // Define our booking interface
 interface Booking {
@@ -34,7 +35,17 @@ interface Booking {
   language: string;
 }
 
-export default function BookingDetailsPage({ params }: { params: { id: string } }) {
+// Define param types
+interface PageParams {
+  id: string;
+  [key: string]: string;
+}
+
+export default function BookingDetailsPage({ params }: { params: Promise<PageParams> }) {
+  // Properly unwrap params Promise
+  const resolvedParams = React.use(params);
+  const bookingId = resolvedParams.id;
+  
   const router = useRouter();
   const [booking, setBooking] = useState<Booking | null>(null);
   const [loading, setLoading] = useState(true);
@@ -53,7 +64,7 @@ export default function BookingDetailsPage({ params }: { params: { id: string } 
         setLoading(true);
         setError(null);
         
-        const response = await fetch(`/api/admin/bookings/${params.id}`);
+        const response = await fetch(`/api/admin/bookings/${bookingId}`);
         
         if (!response.ok) {
           if (response.status === 404) {
@@ -78,7 +89,7 @@ export default function BookingDetailsPage({ params }: { params: { id: string } 
     };
 
     getBooking();
-  }, [params.id]);
+  }, [bookingId]);
 
   const handleCancel = async () => {
     if (!booking) return;
