@@ -1,14 +1,41 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Calendar } from '@/components/ui/calendar';
-import WeeklySchedule from '@/components/admin/availability/WeeklySchedule';
-import BlockedDates from '@/components/admin/availability/BlockedDates';
+import { SkeletonLoader } from '@/components/admin/SkeletonLoader';
+
+// Lazy load heavy components
+const WeeklySchedule = lazy(() => import('@/components/admin/availability/WeeklySchedule'));
+const BlockedDates = lazy(() => import('@/components/admin/availability/BlockedDates'));
+
+// Simple loading component
+const ComponentLoader = () => (
+  <div className="p-4 animate-pulse">
+    <div className="h-8 bg-gray-200 rounded w-1/3 mb-4"></div>
+    <div className="h-24 bg-gray-200 rounded mb-2"></div>
+    <div className="h-24 bg-gray-200 rounded"></div>
+  </div>
+);
 
 export default function AvailabilityPage() {
   const [date, setDate] = useState<Date | undefined>(new Date());
+  const [activeTab, setActiveTab] = useState("weekly");
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Simulate loading the availability data - shorter timeout for better UX
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 300); // Show skeleton for shorter time
+    
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (isLoading) {
+    return <SkeletonLoader type="availability" />;
+  }
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -51,18 +78,22 @@ export default function AvailabilityPage() {
             <CardTitle>Availability Settings</CardTitle>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="weekly">
+            <Tabs defaultValue="weekly" onValueChange={setActiveTab}>
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="weekly">Weekly Schedule</TabsTrigger>
                 <TabsTrigger value="blocked">Blocked Dates</TabsTrigger>
               </TabsList>
               
               <TabsContent value="weekly" className="mt-4">
-                <WeeklySchedule />
+                <Suspense fallback={<ComponentLoader />}>
+                  {activeTab === "weekly" && <WeeklySchedule />}
+                </Suspense>
               </TabsContent>
               
               <TabsContent value="blocked" className="mt-4">
-                <BlockedDates selectedDate={date} />
+                <Suspense fallback={<ComponentLoader />}>
+                  {activeTab === "blocked" && <BlockedDates selectedDate={date} />}
+                </Suspense>
               </TabsContent>
             </Tabs>
           </CardContent>

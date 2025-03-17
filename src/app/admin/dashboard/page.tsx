@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useAuth, useUser } from '@clerk/nextjs';
+import { SkeletonLoader } from '@/components/admin/SkeletonLoader';
 
 // Add an interface for the booking type at the top of the file
 interface Booking {
@@ -64,6 +65,11 @@ export default function AdminDashboardPage() {
   if (!isLoaded || !isSignedIn) {
     return null; // Don't render anything, the admin layout will handle the redirect
   }
+  
+  // Show skeleton loader while loading data
+  if (isLoading) {
+    return <SkeletonLoader type="dashboard" />;
+  }
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -78,14 +84,8 @@ export default function AdminDashboardPage() {
             <CardTitle>Active Bookings</CardTitle>
           </CardHeader>
           <CardContent>
-            {isLoading ? (
-              <p className="text-4xl font-bold">...</p>
-            ) : (
-              <>
-                <p className="text-4xl font-bold">{bookingCount}</p>
-                <p className="text-sm text-muted-foreground">Upcoming confirmed bookings</p>
-              </>
-            )}
+            <p className="text-4xl font-bold">{bookingCount}</p>
+            <p className="text-sm text-muted-foreground">Upcoming confirmed bookings</p>
           </CardContent>
         </Card>
 

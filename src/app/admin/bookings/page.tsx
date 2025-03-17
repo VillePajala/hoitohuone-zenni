@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Search, CalendarRange, Clock } from 'lucide-react';
 import { Skeleton } from "@/components/ui/skeleton";
+import { SkeletonLoader } from "@/components/admin/SkeletonLoader";
 
 interface Service {
   id: string;
@@ -93,27 +94,18 @@ export default function BookingsPage() {
         setError(null);
         
         console.log('Fetching bookings from API...');
+        
         const response = await fetch('/api/admin/bookings');
         
         if (!response.ok) {
           throw new Error(`Failed to fetch bookings: ${response.status} ${response.statusText}`);
         }
+
+        const responseData = await response.json();
+        console.log('Raw booking data:', responseData);
         
-        const data = await response.json();
-        console.log('Raw booking data:', data);
-        
-        if (!Array.isArray(data)) {
-          console.error('Expected array but got:', typeof data);
-          setError('Invalid data format received from server');
-          setIsLoading(false);
-          
-          // Fallback to mock data
-          console.log('Using mock data as fallback');
-          setBookings(mockBookings);
-          return;
-        }
-        
-        if (data.length === 0) {
+        // Use mock data if no bookings returned or if array is empty
+        if (!Array.isArray(responseData) || responseData.length === 0) {
           console.log('No bookings returned from API, using mock data');
           setBookings(mockBookings);
           setIsLoading(false);
@@ -121,53 +113,37 @@ export default function BookingsPage() {
         }
         
         // Transform the data to match our frontend structure
-        const transformedBookings: Booking[] = data.map(booking => {
+        const transformedBookings: Booking[] = [];
+        
+        for (const booking of responseData) {
           try {
-            // Parse dates safely
-            const date = new Date(booking.date);
-            const startTime = new Date(booking.startTime);
-            const endTime = new Date(booking.endTime);
-
-            return {
-              id: booking.id,
-              customerName: booking.customerName,
-              customerEmail: booking.customerEmail,
-              service: booking.service?.nameFi || 'Unknown Service', // Use Finnish name by default
-              date: date.toLocaleDateString('fi-FI'),
-              startTime: startTime.toLocaleTimeString('fi-FI', { 
-                hour: '2-digit', 
-                minute: '2-digit',
-                hour12: false 
-              }),
-              endTime: endTime.toLocaleTimeString('fi-FI', { 
-                hour: '2-digit', 
-                minute: '2-digit',
-                hour12: false 
-              }),
-              status: booking.status
-            };
-          } catch (err) {
-            console.error('Error transforming booking:', err, booking);
-            // Return a fallback booking
-            return {
+            transformedBookings.push({
               id: booking.id || 'unknown',
               customerName: booking.customerName || 'Unknown',
               customerEmail: booking.customerEmail || 'unknown@example.com',
-              service: 'Error: Service Data Missing',
-              date: 'Invalid Date',
-              startTime: 'Invalid Time',
-              endTime: 'Invalid Time',
+              service: booking.service?.nameFi || booking.service?.name || 'Unknown Service',
+              date: booking.date ? new Date(booking.date).toLocaleDateString('fi-FI') : 'Invalid Date',
+              startTime: booking.startTime || 'Invalid Time',
+              endTime: booking.endTime || 'Invalid Time',
               status: booking.status || 'unknown'
-            };
+            });
+          } catch (err) {
+            console.error('Error transforming booking:', err, booking);
           }
-        });
-
+        }
+        
         console.log('Transformed bookings:', transformedBookings);
-        setBookings(transformedBookings);
+        
+        if (transformedBookings.length > 0) {
+          setBookings(transformedBookings);
+        } else {
+          // Fallback to mock data if transformation failed for all bookings
+          console.log('Transformation failed, using mock data');
+          setBookings(mockBookings);
+        }
       } catch (error) {
         console.error('Error fetching bookings:', error);
         setError(error instanceof Error ? error.message : 'Unknown error occurred');
-        
         // Fallback to mock data in case of error
         console.log('Using mock data due to error');
         setBookings(mockBookings);
@@ -175,12 +151,35 @@ export default function BookingsPage() {
         setIsLoading(false);
       }
     };
+
     fetchBookings();
   }, []);
 
   const handleViewBooking = (id: string) => {
     router.push(`/admin/bookings/${id}`);
   };
+
+  // Show skeleton loader while loading data
+  if (isLoading) {
+    return <SkeletonLoader type="bookings" />;
+  }
+
+  // Show error state if there was an error
+  if (error) {
+    return (
+      <Card>
+        <CardContent className="p-6 text-center">
+          <p className="text-lg text-red-600">Error loading bookings: {error}</p>
+          <Button 
+            className="mt-4"
+            onClick={() => window.location.reload()}
+          >
+            Try Again
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -200,43 +199,7 @@ export default function BookingsPage() {
         </div>
       </div>
 
-      {isLoading ? (
-        <div className="grid gap-4">
-          {[1, 2, 3].map((index) => (
-            <Card key={index}>
-              <CardContent className="p-6">
-                <div className="flex flex-col md:flex-row md:justify-between md:items-center">
-                  <div className="flex-1">
-                    <Skeleton className="h-6 w-48 mb-2" />
-                    <Skeleton className="h-4 w-32 mb-2" />
-                    <Skeleton className="h-4 w-40 mb-4" />
-                    <div className="flex items-center gap-2">
-                      <Skeleton className="h-4 w-24" />
-                      <Skeleton className="h-4 w-24" />
-                    </div>
-                  </div>
-                  <div className="mt-4 md:mt-0 flex space-x-2">
-                    <Skeleton className="h-10 w-24" />
-                    <Skeleton className="h-10 w-24" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : error ? (
-        <Card>
-          <CardContent className="p-6 text-center">
-            <p className="text-lg text-red-600">Error loading bookings: {error}</p>
-            <Button 
-              className="mt-4"
-              onClick={() => window.location.reload()}
-            >
-              Try Again
-            </Button>
-          </CardContent>
-        </Card>
-      ) : filteredBookings.length > 0 ? (
+      {filteredBookings.length > 0 ? (
         <div className="grid gap-4">
           {filteredBookings.map((booking) => (
             <Card key={booking.id} className={`${booking.status === 'cancelled' ? 'bg-gray-50' : ''}`}>

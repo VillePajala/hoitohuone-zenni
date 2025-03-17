@@ -5,6 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { ArrowLeft } from 'lucide-react';
+import Link from 'next/link';
 
 export default function SignInPage() {
   const { isLoaded, isSignedIn } = useAuth();
@@ -49,6 +51,15 @@ export default function SignInPage() {
               </Button>
             </div>
           )}
+          
+          <div className="mt-6 text-center">
+            <Link href="/">
+              <Button variant="outline" className="w-full flex items-center justify-center gap-2">
+                <ArrowLeft className="h-4 w-4" />
+                Back to Home
+              </Button>
+            </Link>
+          </div>
         </CardContent>
       </Card>
     </div>
