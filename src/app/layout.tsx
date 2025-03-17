@@ -3,9 +3,11 @@ import { Inter, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import Navigation from "@/components/layout/Navigation";
 import Footer from "@/components/layout/Footer";
-import { Suspense } from 'react';
+import { Suspense, use } from 'react';
 import PageTransition from '@/components/PageTransition';
 import PageLoading from '@/components/PageLoading';
+import { ClerkProvider } from '@clerk/nextjs';
+import AdminBar from "@/components/layout/AdminBar";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -70,26 +72,37 @@ export const metadata: Metadata = {
   },
 };
 
+// For the page props with params
+interface RootLayoutParams {
+  lang: string;
+  [key: string]: string;
+}
+
 export default function RootLayout({
   children,
   params,
 }: {
   children: React.ReactNode;
-  params: { lang: string };
+  params: Promise<RootLayoutParams>;
 }) {
-  const lang = params.lang || 'fi';
+  // Properly unwrap params Promise
+  const resolvedParams = use(params);
+  const lang = resolvedParams?.lang || 'fi';
 
   return (
-    <html lang={lang} className={`${inter.variable} ${playfair.variable}`}>
-      <body className="min-h-screen flex flex-col">
-        <Navigation />
-        <main className="flex-grow pt-16">
-          <Suspense fallback={<PageLoading />}>
-            <PageTransition>{children}</PageTransition>
-          </Suspense>
-        </main>
-        <Footer />
-      </body>
-    </html>
+    <ClerkProvider>
+      <html lang={lang} className={`${inter.variable} ${playfair.variable}`}>
+        <body className="min-h-screen flex flex-col">
+          <AdminBar />
+          <Navigation />
+          <main className="flex-grow pt-20">
+            <Suspense fallback={<PageLoading />}>
+              <PageTransition>{children}</PageTransition>
+            </Suspense>
+          </main>
+          <Footer />
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }

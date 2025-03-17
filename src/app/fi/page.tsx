@@ -1,9 +1,62 @@
 'use client';
 
-import { useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useEffect } from 'react';
 
+// Data
+const featuredServices = [
+  {
+    title: 'Energiahoito',
+    description: 'Tasapainota kehosi energioita ja tue hyvinvointiasi.',
+    icon: (
+      <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={1.5}
+          d="M13 10V3L4 14h7v7l9-11h-7z"
+        />
+      </svg>
+    ),
+  },
+  {
+    title: 'Reiki-hoito',
+    description: 'Koe perinteisen japanilaisen energiahoidon voima.',
+    icon: (
+      <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={1.5}
+          d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+        />
+      </svg>
+    ),
+  },
+];
+
+const featuredTestimonial = {
+  content:
+    'Energiahoidot ovat auttaneet minua merkittävästi stressin hallinnassa. Jokaisen käynnin jälkeen olen rentoutuneempi ja energisempi.',
+  author: 'Maija M.',
+  title: 'Säännöllinen asiakas',
+};
+
+const featuredFaqs = [
+  {
+    question: 'Mitä energiahoito on?',
+    answer:
+      'Energiahoito on hoitomuoto, joka keskittyy kehon energiavirtojen tasapainottamiseen.',
+  },
+  {
+    question: 'Onko hoito turvallista?',
+    answer:
+      'Kyllä, energiahoidot ovat turvallisia ja hellävaraisia hoitomuotoja.',
+  },
+];
+
+// Main page component
 export default function HomePage() {
   useEffect(() => {
     const observerOptions = {
@@ -15,99 +68,44 @@ export default function HomePage() {
     const observer = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
         if (entry.isIntersecting) {
-          entry.target.classList.add('animate-fade-in');
+          entry.target.classList.remove('opacity-0', 'translate-y-5');
+          entry.target.classList.add('opacity-100', 'translate-y-0');
         }
       });
     }, observerOptions);
 
-    document.querySelectorAll('.fade-in').forEach((el) => observer.observe(el));
+    document.querySelectorAll('.animate-on-scroll').forEach((el) => observer.observe(el));
 
     return () => observer.disconnect();
   }, []);
-
-  const featuredServices = [
-    {
-      title: 'Energiahoito',
-      description: 'Tasapainota kehosi energioita ja tue hyvinvointiasi.',
-      icon: (
-        <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={1.5}
-            d="M13 10V3L4 14h7v7l9-11h-7z"
-          />
-        </svg>
-      ),
-    },
-    {
-      title: 'Reiki-hoito',
-      description: 'Koe perinteisen japanilaisen energiahoidon voima.',
-      icon: (
-        <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={1.5}
-            d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-          />
-        </svg>
-      ),
-    },
-  ];
-
-  const featuredTestimonial = {
-    content:
-      'Energiahoidot ovat auttaneet minua merkittävästi stressin hallinnassa. Jokaisen käynnin jälkeen olen rentoutuneempi ja energisempi.',
-    author: 'Maija M.',
-    title: 'Säännöllinen asiakas',
-  };
-
-  const featuredFaqs = [
-    {
-      question: 'Mitä energiahoito on?',
-      answer:
-        'Energiahoito on hoitomuoto, joka keskittyy kehon energiavirtojen tasapainottamiseen.',
-    },
-    {
-      question: 'Onko hoito turvallista?',
-      answer:
-        'Kyllä, energiahoidot ovat turvallisia ja hellävaraisia hoitomuotoja.',
-    },
-  ];
 
   return (
     <div className="space-y-24 pb-24">
       {/* Hero Section */}
       <section className="relative h-[90vh] min-h-[600px] flex items-center justify-center bg-neutral-50">
-        <div className="absolute inset-0 overflow-hidden bg-neutral-100 animate-pulse">
+        <div className="absolute inset-0 overflow-hidden bg-neutral-100">
           <Image
             src="/images/general/image.png"
             alt="Hoitohuone Zenni healing environment"
             fill
-            className="object-cover transition-opacity duration-300 opacity-0 group-loaded:opacity-100"
             priority
+            quality={100}
+            className="object-cover"
             sizes="100vw"
-            onLoad={(event) => {
-              const image = event.currentTarget as HTMLImageElement;
-              image.classList.remove('opacity-0');
-              image.classList.add('opacity-100');
-              image.parentElement?.classList.remove('animate-pulse');
-            }}
           />
           <div className="absolute inset-0 bg-gradient-to-b from-white/50 to-white/95" />
         </div>
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h1 className="text-5xl md:text-6xl font-serif mb-6 fade-in">
+          <h1 className="text-5xl md:text-6xl font-serif mb-6 animate-on-scroll opacity-0 translate-y-5 duration-700 transition-all">
             Löydä tasapaino
             <br />
             <span className="text-neutral-600">kehon ja mielen välillä</span>
           </h1>
-          <p className="text-xl text-neutral-600 max-w-2xl mx-auto mb-8 fade-in">
+          <p className="text-xl text-neutral-600 max-w-2xl mx-auto mb-8 animate-on-scroll opacity-0 translate-y-5 duration-700 delay-200 transition-all">
             Tervetuloa Hoitohuone Zenniin. Tarjoamme yksilöllisiä energiahoitoja,
             jotka auttavat sinua saavuttamaan kokonaisvaltaisen hyvinvoinnin.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center fade-in">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center animate-on-scroll opacity-0 translate-y-5 duration-700 delay-400 transition-all">
             <Link
               href="/fi/palvelut"
               className="inline-block bg-neutral-900 text-white px-8 py-4 rounded-md hover:bg-neutral-800 transition-colors"
@@ -126,14 +124,14 @@ export default function HomePage() {
 
       {/* Services Section */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center max-w-3xl mx-auto fade-in">
+        <div className="text-center max-w-3xl mx-auto animate-on-scroll">
           <h2 className="text-3xl font-serif mb-4">Palvelumme</h2>
           <p className="text-neutral-600 max-w-2xl mx-auto">
             Tutustu tarjoamiimme hoitopalveluihin. Jokainen hoito räätälöidään
             yksilöllisesti sinun tarpeisiisi.
           </p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl mx-auto fade-in">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl mx-auto animate-on-scroll">
           {featuredServices.map((service, index) => (
             <div
               key={index}
@@ -156,7 +154,7 @@ export default function HomePage() {
       {/* Quick Booking Section */}
       <section className="bg-neutral-50 py-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="max-w-3xl mx-auto text-center fade-in">
+          <div className="max-w-3xl mx-auto text-center animate-on-scroll">
             <h2 className="text-3xl font-serif mb-4">Varaa aikasi helposti</h2>
             <p className="text-neutral-600 mb-8">
               Valitse sinulle sopiva aika ja hoitomuoto. Olemme täällä auttaaksemme
@@ -174,7 +172,7 @@ export default function HomePage() {
 
       {/* Testimonial Preview */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="max-w-3xl mx-auto text-center fade-in">
+        <div className="max-w-3xl mx-auto text-center animate-on-scroll">
           <h2 className="text-3xl font-serif mb-12">Asiakkaiden kokemuksia</h2>
           <blockquote className="relative">
             <svg
@@ -208,7 +206,7 @@ export default function HomePage() {
       {/* FAQ Preview */}
       <section className="bg-neutral-50 py-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="max-w-3xl mx-auto fade-in">
+          <div className="max-w-3xl mx-auto animate-on-scroll">
             <div className="text-center mb-12">
               <h2 className="text-3xl font-serif mb-4">Usein kysytyt kysymykset</h2>
               <p className="text-neutral-600">

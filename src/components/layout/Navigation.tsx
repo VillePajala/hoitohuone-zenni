@@ -3,24 +3,16 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import LanguageSwitcher from '../LanguageSwitcher';
+import { useAuth } from '@clerk/nextjs';
 
 const Navigation = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const pathname = usePathname();
-  const locale = pathname.startsWith('/en') ? 'en' : 'fi';
+  const { isLoaded, isSignedIn } = useAuth();
 
-  // Prevent scroll when mobile menu is open
-  useEffect(() => {
-    if (isMenuOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'unset';
-    }
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
-  }, [isMenuOpen]);
+  // Get the current locale from the pathname
+  const currentLocale = pathname.split('/')[1] || 'fi';
+  const isAdminRoute = pathname.startsWith('/admin');
 
   const navigationLinks = {
     fi: [
@@ -43,8 +35,25 @@ const Navigation = () => {
     ],
   };
 
+  // Prevent scroll when mobile menu is open
+  useEffect(() => {
+    if (isMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isMenuOpen]);
+
+  // Don't render navigation on admin routes
+  if (isAdminRoute) {
+    return null;
+  }
+
   const isActive = (path: string) => pathname === path;
-  const links = navigationLinks[locale as keyof typeof navigationLinks];
+  const links = navigationLinks[currentLocale as keyof typeof navigationLinks];
 
   return (
     <>
@@ -57,7 +66,7 @@ const Navigation = () => {
         />
       )}
 
-      <nav className="fixed top-0 w-full bg-white/90 backdrop-blur-sm z-50 border-b border-neutral-200">
+      <nav className={`fixed w-full bg-white/90 backdrop-blur-sm z-30 border-b border-neutral-200 transition-all ${isLoaded && isSignedIn ? 'top-10' : 'top-0'}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Desktop Two-Row Layout */}
           <div className="hidden sm:block">
@@ -65,20 +74,25 @@ const Navigation = () => {
             <div className="h-16 flex items-center justify-between">
               <div className="flex-1" /> {/* Spacer for centering */}
               <Link 
-                href={`/${locale}`} 
+                href={`/${currentLocale}`} 
                 className="text-2xl font-serif text-center"
               >
                 Hoitohuone Zenni
               </Link>
               <div className="flex-1 flex justify-end">
-                <LanguageSwitcher />
+                <Link
+                  href={currentLocale === 'fi' ? pathname.replace('/fi', '/en') : pathname.replace('/en', '/fi')}
+                  className="text-sm font-medium hover:text-gray-600"
+                >
+                  {currentLocale === 'fi' ? 'EN' : 'FI'}
+                </Link>
               </div>
             </div>
             
             {/* Bottom Row - Navigation */}
             <div className="h-12 flex justify-center items-center space-x-4">
               {links.map((link) => {
-                const isBookingLink = link.href.includes('/ajanvaraus') || link.href.includes('/booking');
+                const isBookingLink = link.href.includes('ajanvaraus') || link.href.includes('booking');
                 
                 if (isBookingLink) {
                   return (
@@ -113,14 +127,19 @@ const Navigation = () => {
           {/* Mobile Single-Row Layout */}
           <div className="sm:hidden flex justify-between h-16 items-center">
             <Link 
-              href={`/${locale}`} 
+              href={`/${currentLocale}`} 
               className="text-xl font-serif"
               onClick={() => setIsMenuOpen(false)}
             >
               Hoitohuone Zenni
             </Link>
             <div className="flex items-center space-x-4">
-              <LanguageSwitcher />
+              <Link
+                href={currentLocale === 'fi' ? pathname.replace('/fi', '/en') : pathname.replace('/en', '/fi')}
+                className="text-sm font-medium hover:text-gray-600"
+              >
+                {currentLocale === 'fi' ? 'EN' : 'FI'}
+              </Link>
               <button
                 type="button"
                 className="inline-flex items-center justify-center p-2 rounded-md text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50 transition-colors"
@@ -128,7 +147,7 @@ const Navigation = () => {
                 aria-expanded={isMenuOpen}
               >
                 <span className="sr-only">
-                  {locale === 'fi' ? 'Avaa päävalikko' : 'Open main menu'}
+                  {currentLocale === 'fi' ? 'Avaa päävalikko' : 'Open main menu'}
                 </span>
                 {isMenuOpen ? (
                   <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -152,7 +171,7 @@ const Navigation = () => {
         >
           <div className="px-4 pt-2 pb-3 space-y-1">
             {links.map((link) => {
-              const isBookingLink = link.href.includes('/ajanvaraus') || link.href.includes('/booking');
+              const isBookingLink = link.href.includes('ajanvaraus') || link.href.includes('booking');
               
               return (
                 <Link
@@ -174,9 +193,9 @@ const Navigation = () => {
           </div>
         </div>
       </nav>
-      
-      {/* Adjust spacer height for two-row desktop layout */}
-      <div className="h-16 sm:h-28" />
+
+      {/* Spacer to prevent content from being hidden under the header */}
+      <div className={`h-28 ${isLoaded && isSignedIn ? 'mt-10' : ''}`} />
     </>
   );
 };

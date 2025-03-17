@@ -47,6 +47,7 @@
   - Email notification system
   - Booking system backend
   - Calendar integration
+  - Supabase PostgreSQL and Prisma ORM setup
 - 🟡 Content and Assets
   - Professional images
   - Content finalization
@@ -88,6 +89,11 @@
    - Implement booking backend
    - Add confirmation emails
    - Set up notification system
+   - Set up Supabase PostgreSQL database
+   - Configure Prisma ORM for database interactions
+   - Create database schema for services and bookings
+   
+   **Refer to the [detailed booking system implementation plan](.documentation/hoitohuone-zenni-booking-system-plan.md) for comprehensive steps and technical specifications.**
 
 2. Content Finalization
    - Add proper images and assets
@@ -149,6 +155,7 @@
   - Booking system
   - Email service
   - Analytics
+  - Supabase PostgreSQL database
 - Testing resources
 - Production hosting setup
 
