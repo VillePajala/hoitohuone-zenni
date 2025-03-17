@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+// Force dynamic rendering and bypass middleware caching
+export const dynamic = 'force-dynamic';
+
 // GET /api/admin/bookings
 export async function GET(req: NextRequest) {
+  console.log('🔍 Bookings API called:', new Date().toISOString());
+  
   try {
     console.log('Fetching bookings...');
     
@@ -13,7 +18,7 @@ export async function GET(req: NextRequest) {
     } catch (dbError) {
       console.error('Database connection failed:', dbError);
       return NextResponse.json(
-        { error: 'Database connection failed' },
+        { error: 'Database connection failed', details: JSON.stringify(dbError) },
         { status: 500 }
       );
     }
@@ -27,39 +32,52 @@ export async function GET(req: NextRequest) {
       return NextResponse.json([], { status: 200 });
     }
 
-    // Directly get all bookings
-    const bookings = await prisma.booking.findMany({
-      include: {
-        service: true
-      }
-    });
-    
-    console.log(`Found ${bookings.length} bookings`);
-    
-    // Format bookings for the frontend
-    const formattedBookings = bookings.map(booking => {
-      console.log(`Booking ${booking.id} status: "${booking.status}"`);
+    try {
+      // Directly get all bookings
+      const bookings = await prisma.booking.findMany({
+        include: {
+          service: true
+        }
+      });
       
-      return {
-        id: booking.id,
-        customerName: booking.customerName,
-        customerEmail: booking.customerEmail,
-        service: {
-          id: booking.service.id,
-          name: booking.service.name,
-          nameFi: booking.service.nameFi,
-          nameEn: booking.service.nameEn
-        },
-        date: booking.date.toISOString(),
-        startTime: booking.startTime.toISOString(),
-        endTime: booking.endTime.toISOString(),
-        status: booking.status, // Keep the exact status as stored in database
-        language: booking.language
-      };
-    });
+      console.log(`Found ${bookings.length} bookings. First booking:`, JSON.stringify(bookings[0], null, 2));
+      
+      // Format bookings for the frontend
+      const formattedBookings = bookings.map(booking => {
+        console.log(`Processing booking ${booking.id} with status: "${booking.status}"`);
+        
+        try {
+          return {
+            id: booking.id,
+            customerName: booking.customerName,
+            customerEmail: booking.customerEmail,
+            service: {
+              id: booking.service.id,
+              name: booking.service.name,
+              nameFi: booking.service.nameFi,
+              nameEn: booking.service.nameEn
+            },
+            date: booking.date.toISOString(),
+            startTime: booking.startTime.toISOString(),
+            endTime: booking.endTime.toISOString(),
+            status: booking.status, // Keep the exact status as stored in database
+            language: booking.language
+          };
+        } catch (bookingError) {
+          console.error(`Error formatting booking ${booking.id}:`, bookingError);
+          return null;
+        }
+      }).filter(booking => booking !== null);
 
-    return NextResponse.json(formattedBookings);
-    
+      console.log(`Successfully formatted ${formattedBookings.length} bookings`);
+      return NextResponse.json(formattedBookings);
+    } catch (queryError) {
+      console.error('Error querying bookings:', queryError);
+      return NextResponse.json(
+        { error: 'Failed to query bookings', details: JSON.stringify(queryError) },
+        { status: 500 }
+      );
+    }
   } catch (error) {
     console.error('Error fetching bookings:', error);
     return NextResponse.json(
@@ -67,6 +85,11 @@ export async function GET(req: NextRequest) {
       { status: 500 }
     );
   } finally {
-    await prisma.$disconnect();
+    try {
+      await prisma.$disconnect();
+      console.log('Database disconnected successfully');
+    } catch (disconnectError) {
+      console.error('Error disconnecting from database:', disconnectError);
+    }
   }
 } 
