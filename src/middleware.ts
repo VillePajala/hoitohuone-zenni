@@ -14,6 +14,11 @@ function localeMiddleware(request: NextRequest) {
   if (pathname.startsWith('/admin')) {
     return NextResponse.next();
   }
+  
+  // Skip locale redirection for API routes
+  if (pathname.startsWith('/api')) {
+    return NextResponse.next();
+  }
 
   // Check if the pathname is missing a locale
   const pathnameHasLocale = locales.some(
@@ -35,15 +40,24 @@ function localeMiddleware(request: NextRequest) {
 
 // Public routes that don't need authentication
 const publicRoutes = [
-  '/api/services', // Public services API
+  // Public APIs
+  '/api/services',
+  '/api/services/',
+  '/api/services/[id]',
   '/api/availability',
   '/api/bookings',
   '/api/available-dates',
   '/api/time-slots',
-  '/api/debug', // Debug endpoints
-  '/admin/bookings/debug', // Debug UI
+  '/api/debug',
+  
+  // Debug UI
+  '/admin/bookings/debug',
+  
+  // Static assets
   'favicon.ico',
   '/_next',
+  
+  // Public pages
   '/',
   ...locales.map(locale => `/${locale}`),
   '/admin/sign-in',

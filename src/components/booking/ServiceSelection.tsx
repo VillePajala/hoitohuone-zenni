@@ -61,18 +61,22 @@ export default function ServiceSelection({ onServiceSelect, selectedServiceId }:
     const fetchServices = async () => {
       try {
         setLoading(true);
+        setError(null);
         
-        // Fetch services from API
-        const response = await fetch('/api/services');
+        // Fetch services from API with timestamp to prevent caching
+        const response = await fetch(`/api/services?t=${Date.now()}`);
         
         if (!response.ok) {
+          console.error(`Services API error: ${response.status} ${response.statusText}`);
           throw new Error('Failed to fetch services');
         }
         
         const data = await response.json();
+        console.log('Services API response received', data);
         
         // Set services state if data is valid
         if (Array.isArray(data) && data.length > 0) {
+          console.log(`Found ${data.length} services`);
           setServices(data);
         } else {
           // Use mock data if API returns empty array or invalid data
