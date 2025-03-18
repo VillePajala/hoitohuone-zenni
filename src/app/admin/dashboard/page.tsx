@@ -7,6 +7,10 @@ import { Button } from '@/components/ui/button';
 import { useUser } from '@clerk/nextjs';
 import { SkeletonLoader } from '@/components/admin/SkeletonLoader';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
+import { ErrorDisplay } from '@/components/ui/ErrorDisplay';
+import { withErrorBoundary } from '@/components/ErrorBoundary';
+import { ErrorType, createError, logError } from '@/lib/errorHandling';
+import { useAuthContext } from '@/contexts/AuthContext';
 
 // Add an interface for the booking type at the top of the file
 interface Booking {
@@ -22,85 +26,92 @@ interface BookingsResponse {
   bookings: Booking[];
 }
 
-export default function AdminDashboardPage() {
+function AdminDashboardPage() {
   const router = useRouter();
   const { user } = useUser();
   const [bookingCount, setBookingCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<Error | null>(null);
   
-  // Use our custom auth hook for authenticated API calls
-  const { authGet, isAuthError, isSignedIn, isLoading: isAuthLoading } = useAdminAuth();
+  // Use our admin auth hook for authenticated API calls
+  const { authFetch } = useAdminAuth();
+  
+  // Use our auth context to check auth state
+  const { isAuthenticated, isLoading: isAuthLoading } = useAuthContext();
 
   // Fetch dashboard data
   useEffect(() => {
     const fetchDashboardData = async () => {
-      if (!isSignedIn) return;
+      if (!isAuthenticated) return;
       
       try {
         setIsLoading(true);
         setError(null);
         
-        // Use the authGet helper instead of direct fetch
-        const data = await authGet('/api/admin/bookings');
+        // Use the authFetch helper instead of direct fetch
+        const response = await authFetch('/api/admin/bookings');
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          const errorMessage = errorData.message && typeof errorData.message === 'string'
+            ? errorData.message
+            : 'Failed to load bookings';
+          
+          throw createError(
+            ErrorType.VALIDATION,
+            errorMessage
+          );
+        }
+        
+        const data = await response.json();
         
         // The API now returns an object with a bookings property
         const bookings = data.bookings || [];
-        
-        console.log('Dashboard received bookings:', bookings ? bookings.length : 0);
-        
-        if (bookings.length > 0) {
-          // Log first booking to debug
-          console.log('First booking:', JSON.stringify(bookings[0]));
-        }
         
         // Only count confirmed bookings, exact match
         const confirmedBookings = bookings.filter(
           (booking: Booking) => booking.status === 'confirmed'
         );
         
-        console.log('Confirmed bookings count:', confirmedBookings.length);
         setBookingCount(confirmedBookings.length);
-      } catch (error) {
-        console.error('Error fetching dashboard data:', error);
-        setError(error instanceof Error ? error.message : 'Failed to load bookings');
+      } catch (err) {
+        logError('Error fetching dashboard data:', err);
+        setError(err instanceof Error ? err : new Error('Failed to load bookings'));
         setBookingCount(0);
       } finally {
         setIsLoading(false);
       }
     };
 
-    if (isSignedIn) {
+    if (isAuthenticated) {
       fetchDashboardData();
     }
-  }, [isSignedIn, authGet]);
+  }, [isAuthenticated, authFetch]);
 
-  // Show loading state while Clerk is initializing
+  // Show loading state while auth is initializing
   if (isAuthLoading) {
     return <SkeletonLoader type="dashboard" />;
-  }
-  
-  // Show auth error if not signed in
-  if (isAuthError) {
-    return (
-      <div className="p-6 max-w-7xl mx-auto">
-        <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-md mb-6 text-yellow-800">
-          <p className="font-medium">Authentication Required</p>
-          <p className="text-sm mt-1">Please sign in to access the dashboard</p>
-          <Button 
-            onClick={() => router.push('/admin/sign-in')}
-            className="mt-3"
-          >
-            Sign In
-          </Button>
-        </div>
-      </div>
-    );
   }
   
   // Show skeleton loader while loading data
   if (isLoading) {
     return <SkeletonLoader type="dashboard" />;
+  }
+
+  // Show error state if there was an error
+  if (error) {
+    return (
+      <div className="p-6 max-w-7xl mx-auto">
+        <ErrorDisplay 
+          message={error.message}
+          onRetry={() => {
+            setError(null);
+            setIsLoading(true);
+            router.refresh();
+          }}
+        />
+      </div>
+    );
   }
 
   return (
@@ -109,13 +120,6 @@ export default function AdminDashboardPage() {
         <h1 className="text-3xl font-bold">Admin Dashboard</h1>
         <p className="text-gray-500">Welcome back, {user?.firstName || user?.emailAddresses[0]?.emailAddress?.split('@')[0] || 'Admin'}</p>
       </div>
-
-      {error && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-md text-red-800">
-          <p className="font-medium">Error loading dashboard data</p>
-          <p className="text-sm">{error}</p>
-        </div>
-      )}
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <Card>
@@ -158,4 +162,6 @@ export default function AdminDashboardPage() {
       </div>
     </div>
   );
-} 
+}
+
+export default withErrorBoundary(AdminDashboardPage); 
