@@ -4,12 +4,13 @@
 This document outlines the comprehensive plan for implementing the booking system for Hoitohuone Zenni. The booking system will allow customers to schedule appointments for various energy healing services offered by the business. It will be implemented using Next.js for the frontend, Prisma ORM for database interactions, and Supabase PostgreSQL as the database provider.
 
 ## Current Implementation Status
-**Last Updated:** 2024-03-17
+**Last Updated:** 2024-03-18
 
 ### Completed
 1. **Database Schema and Setup**
    - Schema created for Services, Bookings, Availability, and BlockedDates ✓
    - Prisma configuration setup ✓
+   - Service ordering functionality through "order" column in database ✓
 
 2. **Frontend Components** 
    - Core booking flow components ✓
@@ -20,6 +21,7 @@ This document outlines the comprehensive plan for implementing the booking syste
      - BookingConfirmation component ✓
    - BookingContainer with step-by-step flow logic ✓
    - Language internationalization support (Finnish/English) ✓
+   - Responsive design for mobile and desktop ✓
 
 3. **API Routes**
    - POST /api/bookings endpoint to create bookings ✓
@@ -28,6 +30,8 @@ This document outlines the comprehensive plan for implementing the booking syste
    - GET /api/services with optimized caching control ✓
    - Locale-aware API endpoints for services ✓
    - Debug routes for API diagnostics ✓
+   - Admin API endpoints for services, bookings, and availability ✓
+   - Enhanced error handling with typed errors ✓
 
 4. **Advanced Features**
    - Email notification system ✓
@@ -41,12 +45,19 @@ This document outlines the comprehensive plan for implementing the booking syste
      - Cancellation API endpoints ✓
      - Email notifications for cancellations ✓
      - Booking status updates ✓
+   - Services management ✓
+     - Service creation and editing forms ✓
+     - Service activation/deactivation toggle ✓
+     - Drag-and-drop service ordering ✓
+     - Service deletion with confirmation ✓
 
 5. **Authentication**
    - Admin authentication with Clerk ✓
    - Login, logout flows ✓ 
    - Protected admin routes ✓
    - User session management ✓
+   - Token refresh mechanisms ✓
+   - Error handling for authentication failures ✓
 
 6. **Admin Interface Structure**
    - Admin layout with responsive sidebar and mobile navigation ✓
@@ -59,6 +70,7 @@ This document outlines the comprehensive plan for implementing the booking syste
    - Services management interface ✓
    - Service ordering with drag-and-drop functionality ✓
    - Service activation/deactivation ✓
+   - Form validation for service creation/editing ✓
 
 7. **Availability Management**
    - Weekly schedule editor UI (functional with time slot management) ✓
@@ -69,6 +81,12 @@ This document outlines the comprehensive plan for implementing the booking syste
      - Copy day feature to duplicate one day's schedule to another ✓
      - Clear day functionality to reset a day's time slots ✓
      - Schedule templates (standard business, extended, weekend) ✓
+
+8. **Next.js 15.1.7+ Compatibility**
+   - Updated dynamic route handling with React.use() for params ✓
+   - Proper TypeScript interfaces for route parameters ✓
+   - Enhanced middleware for better route handling ✓
+   - Added cache control directives to API routes ✓
 
 ### In Progress
 1. **Availability Management Refinements**
@@ -82,6 +100,12 @@ This document outlines the comprehensive plan for implementing the booking syste
    - Date range selection for viewing bookings
    - Export functionality
    - Mobile-responsive improvements
+
+3. **Architectural Improvements**
+   - Consolidation of authentication logic
+   - Standardization of API directory structure
+   - Database connection optimization
+   - Implementation of repository pattern for data access
 
 ### Not Started
 1. **Advanced Admin Features**
@@ -100,24 +124,28 @@ This document outlines the comprehensive plan for implementing the booking syste
 3. **Deployment**
    - Migration from development to production environment
    - Setup of production database
+   - Migration from SQLite to PostgreSQL for production
 
 ## Next Steps
-1. **Refine Booking Management**
+1. **Architectural Improvements (Critical)**
+   - Optimize database connections to prevent connection exhaustion
+   - Standardize API directory structure between src/api and src/app/api
+   - Consolidate authentication logic between AuthContext and useAdminAuth
+   - Implement repository pattern for database access
+   - Implement proper logging instead of console.log statements
+   - Consider migrating from SQLite to PostgreSQL for production
+
+2. **Refine Booking Management**
    - Implement booking search and advanced filtering
    - Add booking date range selection
    - Add export functionality for bookings
    - Improve responsive design for mobile admin usage
 
-2. **Complete Availability Management**
+3. **Complete Availability Management**
    - Finalize weekly schedule editor functionality
    - Complete blocked dates API integration
    - Add calendar view of all bookings and blocked dates
    - Implement conflict detection
-
-3. **Complete Services Management**
-   - Finish service creation, editing and deletion
-   - Add service activation/deactivation
-   - Implement service ordering
 
 4. **Testing and Deployment**
    - Implement end-to-end testing with Cypress or Playwright
