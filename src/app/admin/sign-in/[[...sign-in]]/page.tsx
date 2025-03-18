@@ -2,21 +2,45 @@
 
 import { SignIn, useAuth } from '@clerk/nextjs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
+import { AlertCircle, ArrowLeft, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { ErrorDisplay } from '@/components/ui/ErrorDisplay';
+import { withErrorBoundary } from '@/components/ErrorBoundary';
+import { ErrorType, createError } from '@/lib/errorHandling';
+import { useAuthContext } from '@/contexts/AuthContext';
 
-export default function SignInPage() {
+function SignInPage() {
   const { isLoaded, isSignedIn } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const [error, setError] = useState<Error | null>(null);
+  const { refreshAuth } = useAuthContext();
+  
+  // Check for error message in URL parameters
+  const errorMessage = searchParams.get('error');
+  const redirectUrl = searchParams.get('redirect_url') || '/admin/dashboard';
   
   useEffect(() => {
-    if (isLoaded && isSignedIn) {
-      router.replace('/admin/dashboard');
+    if (errorMessage) {
+      setError(createError(
+        ErrorType.AUTHENTICATION,
+        decodeURIComponent(errorMessage)
+      ));
     }
-  }, [isLoaded, isSignedIn, router]);
+  }, [errorMessage]);
+  
+  useEffect(() => {
+    // If the user is already signed in, redirect to dashboard
+    if (isLoaded && isSignedIn) {
+      refreshAuth().then(() => {
+        router.replace(redirectUrl);
+      });
+    }
+  }, [isLoaded, isSignedIn, router, redirectUrl, refreshAuth]);
 
   return (
     <div className="flex justify-center items-center min-h-screen bg-gray-50 p-4">
@@ -28,6 +52,16 @@ export default function SignInPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {error && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Authentication Error</AlertTitle>
+              <AlertDescription>
+                {error.message}
+              </AlertDescription>
+            </Alert>
+          )}
+          
           <SignIn 
             appearance={{
               elements: {
@@ -38,13 +72,13 @@ export default function SignInPage() {
                 socialButtonsBlockButton: 'bg-white border border-gray-300 hover:bg-gray-50'
               }
             }}
-            redirectUrl="/admin/dashboard"
+            redirectUrl={redirectUrl}
           />
           {isLoaded && isSignedIn && (
             <div className="mt-4 text-center">
               <p className="text-sm text-gray-600 mb-2">Already signed in</p>
               <Button 
-                onClick={() => router.replace('/admin/dashboard')}
+                onClick={() => router.replace(redirectUrl)}
                 className="w-full"
               >
                 Go to Dashboard
@@ -64,4 +98,6 @@ export default function SignInPage() {
       </Card>
     </div>
   );
-} 
+}
+
+export default withErrorBoundary(SignInPage); 

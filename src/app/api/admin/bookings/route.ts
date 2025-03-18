@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getAuth } from '@clerk/nextjs/server';
+import { ErrorType, createError, createErrorResponse, logError } from '@/lib/errorHandling';
 
 // Force dynamic rendering and bypass middleware caching
 export const dynamic = 'force-dynamic';
@@ -25,15 +26,15 @@ function checkAuth(req: NextRequest) {
       if (token.length > 0) {
         return true;
       } else {
-        console.error('Empty Bearer token provided');
+        logError('Empty Bearer token provided', 'bookings-api');
         return false;
       }
     }
     
-    console.error('No valid authentication found in request');
+    logError('No valid authentication found in request', 'bookings-api');
     return false;
   } catch (error) {
-    console.error('Error in auth check:', error);
+    logError(error, 'bookings-api auth check');
     return false;
   }
 }
@@ -51,11 +52,8 @@ export async function GET(req: NextRequest) {
     
     // Check authentication
     if (!checkAuth(req)) {
-      console.error('Authentication failed - returning 401');
-      return NextResponse.json(
-        { error: 'Unauthorized - Please sign in to access this resource' },
-        { status: 401 }
-      );
+      logError('Authentication failed - returning 401', 'bookings-api');
+      throw createError(ErrorType.AUTHENTICATION, 'Please sign in to access this resource');
     }
     
     // Test database connection
@@ -63,10 +61,11 @@ export async function GET(req: NextRequest) {
       await prisma.$connect();
       console.log('Database connection successful');
     } catch (dbError) {
-      console.error('Database connection failed:', dbError);
-      return NextResponse.json(
-        { error: 'Database connection failed', details: JSON.stringify(dbError) },
-        { status: 500 }
+      logError(dbError, 'bookings-api database connection');
+      throw createError(
+        ErrorType.DATABASE, 
+        'Failed to connect to database', 
+        dbError
       );
     }
 
@@ -76,7 +75,12 @@ export async function GET(req: NextRequest) {
 
     if (bookingCount === 0) {
       console.log('No bookings found in database');
-      return NextResponse.json({ bookings: [] }, { status: 200 });
+      return createErrorResponse(
+        createError(
+          ErrorType.NOT_FOUND, 
+          'No bookings found'
+        )
+      );
     }
 
     try {
@@ -118,33 +122,40 @@ export async function GET(req: NextRequest) {
             language: booking.language
           };
         } catch (bookingError) {
-          console.error(`Error formatting booking ${booking.id}:`, bookingError);
+          logError(bookingError, `Error formatting booking ${booking.id}`);
           return null;
         }
       }).filter(booking => booking !== null);
 
       console.log(`Successfully formatted ${formattedBookings.length} bookings`);
       // Return in an object with bookings property to match the expected structure
-      return NextResponse.json({ bookings: formattedBookings });
+      return createSuccessResponse({ bookings: formattedBookings });
     } catch (queryError) {
-      console.error('Error querying bookings:', queryError);
-      return NextResponse.json(
-        { error: 'Failed to query bookings', details: JSON.stringify(queryError) },
-        { status: 500 }
+      logError(queryError, 'Error querying bookings');
+      throw createError(
+        ErrorType.DATABASE, 
+        'Failed to query bookings', 
+        queryError
       );
     }
   } catch (error) {
-    console.error('Error fetching bookings:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch bookings', details: error instanceof Error ? error.message : 'Unknown error' },
-      { status: 500 }
-    );
+    return createErrorResponse(error);
   } finally {
     try {
       await prisma.$disconnect();
       console.log('Database disconnected successfully');
     } catch (disconnectError) {
-      console.error('Error disconnecting from database:', disconnectError);
+      logError(disconnectError, 'Error disconnecting from database');
     }
   }
-} 
+}
+
+// Helper function to create success responses
+function createSuccessResponse(data: any, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: {
+      'Content-Type': 'application/json'
+    }
+  });
+}
