@@ -22,6 +22,7 @@ import {
 import { Search, CalendarRange, Clock, MoreVertical, RefreshCcw } from 'lucide-react';
 import { SkeletonLoader } from "@/components/admin/SkeletonLoader";
 import { format, parseISO } from 'date-fns';
+import { useAdminAuth } from '@/hooks/useAdminAuth';
 
 interface Service {
   id: string;
@@ -55,6 +56,7 @@ interface Booking {
 
 export default function BookingsPage() {
   const router = useRouter();
+  const { authGet, isAuthError, refreshToken } = useAdminAuth(true); // Redirect to login if not authenticated
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -63,6 +65,7 @@ export default function BookingsPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [services, setServices] = useState<Service[]>([]);
+  const [authRetryCount, setAuthRetryCount] = useState(0);
 
   // Filter bookings based on all filters
   const filteredBookings = bookings.filter(booking => {
@@ -89,21 +92,27 @@ export default function BookingsPage() {
   useEffect(() => {
     const fetchServices = async () => {
       try {
-        const response = await fetch('/api/admin/services');
-        if (!response.ok) {
-          console.error('Failed to fetch services');
-          return;
-        }
-        
-        const data = await response.json();
+        // Try to use authGet for authenticated requests
+        const data = await authGet('/api/admin/services');
         setServices(data);
       } catch (error) {
         console.error('Error fetching services:', error);
+        
+        // If auth error and we haven't retried too many times, try refreshing token
+        if (isAuthError && authRetryCount < 2) {
+          console.log('Auth error detected, attempting to refresh token...');
+          const refreshed = await refreshToken();
+          if (refreshed) {
+            setAuthRetryCount(prev => prev + 1);
+            // Retry fetch after successful refresh
+            fetchServices();
+          }
+        }
       }
     };
     
     fetchServices();
-  }, []);
+  }, [authGet, isAuthError, refreshToken, authRetryCount]);
 
   // Fetch bookings from API
   useEffect(() => {
@@ -117,68 +126,54 @@ export default function BookingsPage() {
       
       console.log('Fetching bookings from API...');
       
-      // Try the regular endpoint first
-      let response = await fetch('/api/admin/bookings');
+      // Try to use authGet for authenticated requests
+      try {
+        const bookingData = await authGet('/api/admin/bookings');
+        if (bookingData && bookingData.bookings) {
+          processBookingData(bookingData.bookings);
+          return;
+        }
+      } catch (authError) {
+        console.error('Error with authenticated request:', authError);
+        
+        // If auth error and we haven't retried too many times, try refreshing token
+        if (isAuthError && authRetryCount < 2) {
+          console.log('Auth error detected, attempting to refresh token...');
+          const refreshed = await refreshToken();
+          if (refreshed) {
+            setAuthRetryCount(prev => prev + 1);
+            // Retry after token refresh without falling back to debug endpoint
+            fetchBookings();
+            return;
+          }
+        }
+        
+        // If token refresh failed or too many retries, fallback to regular fetch
+        console.log('Falling back to standard fetch after auth failure');
+      }
+      
+      // Regular fetch as fallback (will be handled by middleware)
+      const response = await fetch('/api/admin/bookings');
       
       // If the regular endpoint fails, try the debug endpoint
       if (!response.ok) {
         console.log('Regular bookings endpoint failed, trying debug endpoint...');
-        response = await fetch('/api/admin/bookings/debug-data');
+        const debugResponse = await fetch('/api/admin/bookings/debug-data');
         
-        if (!response.ok) {
+        if (!debugResponse.ok) {
           throw new Error(`Failed to fetch bookings from both endpoints: ${response.status} ${response.statusText}`);
         }
-      }
-
-      const responseData = await response.json();
-      console.log('Raw booking data received:', responseData);
-      
-      // Check if the response is an array
-      if (!Array.isArray(responseData)) {
-        console.error('API did not return an array:', responseData);
-        if (responseData.error) {
-          throw new Error(`API error: ${responseData.error}`);
-        }
-        throw new Error('API did not return a valid bookings array');
-      }
-      
-      if (responseData.length === 0) {
-        console.log('No bookings found in API response');
-        setBookings([]);
-        setIsLoading(false);
-        setIsRefreshing(false);
-        return;
-      }
-      
-      // Transform the data to match our frontend structure
-      const transformedBookings: Booking[] = [];
-      
-      for (const booking of responseData) {
-        try {
-          // Log each booking data for debugging
-          console.log('Processing booking:', JSON.stringify(booking));
-          
-          const transformedBooking = {
-            id: booking.id || 'unknown',
-            customerName: booking.customerName || 'Unknown',
-            customerEmail: booking.customerEmail || 'unknown@example.com',
-            service: booking.service?.nameFi || booking.service?.name || 'Unknown Service',
-            serviceId: booking.service?.id || 'unknown',
-            date: booking.date ? formatDateString(booking.date) : 'Invalid Date',
-            startTime: booking.startTime ? formatTimeString(booking.startTime) : 'Invalid Time',
-            endTime: booking.endTime ? formatTimeString(booking.endTime) : 'Invalid Time',
-            status: booking.status || 'unknown'
-          };
-          
-          console.log('Transformed booking:', transformedBooking);
-          transformedBookings.push(transformedBooking);
-        } catch (err) {
-          console.error('Error transforming booking:', err, booking);
+        
+        const debugData = await debugResponse.json();
+        processBookingData(debugData);
+      } else {
+        const responseData = await response.json();
+        if (responseData && responseData.bookings) {
+          processBookingData(responseData.bookings);
+        } else {
+          processBookingData(responseData);
         }
       }
-      
-      console.log(`Successfully transformed ${transformedBookings.length} bookings`);
-      setBookings(transformedBookings);
     } catch (error) {
       console.error('Error fetching bookings:', error);
       setError(error instanceof Error ? error.message : 'Unknown error occurred');
@@ -186,6 +181,51 @@ export default function BookingsPage() {
       setIsLoading(false);
       setIsRefreshing(false);
     }
+  };
+
+  // Process booking data from any source
+  const processBookingData = (data: any[]) => {
+    if (!Array.isArray(data)) {
+      console.error('API did not return an array:', data);
+      setBookings([]);
+      return;
+    }
+    
+    if (data.length === 0) {
+      console.log('No bookings found in API response');
+      setBookings([]);
+      return;
+    }
+    
+    // Transform the data to match our frontend structure
+    const transformedBookings: Booking[] = [];
+    
+    for (const booking of data) {
+      try {
+        // Log each booking data for debugging
+        console.log('Processing booking:', JSON.stringify(booking));
+        
+        const transformedBooking = {
+          id: booking.id || 'unknown',
+          customerName: booking.customerName || 'Unknown',
+          customerEmail: booking.customerEmail || 'unknown@example.com',
+          service: booking.service?.nameFi || booking.service?.name || 'Unknown Service',
+          serviceId: booking.service?.id || 'unknown',
+          date: booking.date ? formatDateString(booking.date) : 'Invalid Date',
+          startTime: booking.startTime ? formatTimeString(booking.startTime) : 'Invalid Time',
+          endTime: booking.endTime ? formatTimeString(booking.endTime) : 'Invalid Time',
+          status: booking.status || 'unknown'
+        };
+        
+        console.log('Transformed booking:', transformedBooking);
+        transformedBookings.push(transformedBooking);
+      } catch (err) {
+        console.error('Error transforming booking:', err, booking);
+      }
+    }
+    
+    console.log(`Successfully transformed ${transformedBookings.length} bookings`);
+    setBookings(transformedBookings);
   };
 
   const handleViewBooking = (id: string) => {
@@ -278,6 +318,14 @@ export default function BookingsPage() {
     return bookings.filter(booking => booking.status === status).length;
   };
 
+  // Handle manual refresh with token refresh attempt
+  const handleRefresh = async () => {
+    // First try to refresh the auth token
+    await refreshToken();
+    // Then fetch bookings
+    fetchBookings();
+  };
+
   // Show skeleton loader while loading data
   if (isLoading) {
     return <SkeletonLoader type="bookings" />;
@@ -367,37 +415,21 @@ export default function BookingsPage() {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
-        <h1 className="text-3xl font-bold">Bookings</h1>
-        <div className="flex flex-col sm:flex-row gap-2">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Search bookings..."
-              className="pl-8 w-full"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          <Button 
-            variant="outline" 
-            size="icon"
-            onClick={() => {
-              setIsRefreshing(true);
-              fetchBookings();
-            }}
-            disabled={isRefreshing}
-            className="shrink-0"
-          >
-            <RefreshCcw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-          </Button>
-        </div>
+    <div className="p-4 space-y-4">
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold">Bookings</h1>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={handleRefresh} 
+          disabled={isRefreshing}
+        >
+          <RefreshCcw className="h-4 w-4 mr-2" />
+          Refresh
+        </Button>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col md:flex-row gap-4 mb-6">
+      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
         <div className="flex-1 max-w-xs">
           <label className="text-sm font-medium mb-1 block text-gray-700">Status</label>
           <Tabs defaultValue="all" className="w-full" onValueChange={setStatusFilter}>
