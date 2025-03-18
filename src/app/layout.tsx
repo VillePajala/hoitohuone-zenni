@@ -8,6 +8,7 @@ import PageTransition from '@/components/PageTransition';
 import PageLoading from '@/components/PageLoading';
 import { ClerkProvider } from '@clerk/nextjs';
 import AdminBar from "@/components/layout/AdminBar";
+import { AuthProvider } from "@/contexts/AuthContext";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -93,14 +94,16 @@ export default function RootLayout({
     <ClerkProvider>
       <html lang={lang} className={`${inter.variable} ${playfair.variable}`}>
         <body className="min-h-screen flex flex-col">
-          <AdminBar />
-          <Navigation />
-          <main className="flex-grow pt-20">
-            <Suspense fallback={<PageLoading />}>
-              <PageTransition>{children}</PageTransition>
-            </Suspense>
-          </main>
-          <Footer />
+          <AuthProvider>
+            <AdminBar />
+            <Navigation />
+            <main className="flex-grow pt-20">
+              <Suspense fallback={<PageLoading />}>
+                <PageTransition>{children}</PageTransition>
+              </Suspense>
+            </main>
+            <Footer />
+          </AuthProvider>
         </body>
       </html>
     </ClerkProvider>

@@ -22,9 +22,10 @@ export async function GET() {
       where: {
         active: true
       },
-      orderBy: {
-        name: 'asc'
-      }
+      orderBy: [
+        { order: 'asc' },
+        { name: 'asc' }
+      ]
     });
     
     console.log(`Found ${services.length} active services`);

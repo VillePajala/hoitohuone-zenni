@@ -1,16 +1,19 @@
+'use client';
+
 import React from 'react';
-import { Metadata } from 'next';
 import ServiceList from '@/components/admin/services/ServiceList';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import Link from 'next/link';
 
-export const metadata: Metadata = {
-  title: 'Service Management | Admin',
-  description: 'Manage services for Hoitohuone Zenni',
-};
+// Remove the metadata export since this is a client component
+// export const metadata: Metadata = {
+//   title: 'Service Management | Admin',
+//   description: 'Manage services for Hoitohuone Zenni',
+// };
 
-export default function ServicesPage() {
+// Export the component as the default export
+const ServicesPage = () => {
   return (
     <div className="container mx-auto py-6">
       <div className="flex justify-between items-center mb-6">
@@ -32,4 +35,6 @@ export default function ServicesPage() {
       <ServiceList />
     </div>
   );
-} 
+};
+
+export default ServicesPage; 

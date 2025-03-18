@@ -1,12 +1,17 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { LayoutDashboard, CalendarDays, Users, Settings, LogOut, Menu, X, Clock, Sparkles } from 'lucide-react';
 import { useUser } from '@clerk/nextjs';
 import { SkeletonLoader } from '@/components/admin/SkeletonLoader';
 import { Button } from '@/components/ui/button';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { AuthenticationError } from '@/components/ui/ErrorDisplay';
+import { ErrorType, createError } from '@/lib/errorHandling';
+import AuthStatus from '@/components/admin/AuthStatus';
+import { useAuthContext } from '@/contexts/AuthContext';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -16,83 +21,57 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { user } = useUser();
+  const { user, isLoaded, isSignedIn } = useUser();
   const [isNavigating, setIsNavigating] = useState(false);
   const [targetPath, setTargetPath] = useState<string | null>(null);
-  const [authError, setAuthError] = useState(false);
-
-  // Handle Clerk auth errors using a safer approach
-  useEffect(() => {
-    // Use a safer way to detect auth errors
-    const handleError = (event: ErrorEvent) => {
-      const errorMessage = event.message || '';
-      if (
-        (typeof errorMessage === 'string' && 
-        (errorMessage.includes('Clerk') || errorMessage.includes('auth')))
-      ) {
-        setAuthError(true);
-      }
-    };
-
-    // Add global error handler
-    window.addEventListener('error', handleError);
-
-    return () => {
-      // Clean up
-      window.removeEventListener('error', handleError);
-    };
-  }, []);
-
-  // Prefetch all admin routes to speed up navigation
-  useEffect(() => {
-    router.prefetch('/admin/dashboard');
-    router.prefetch('/admin/bookings');
-    router.prefetch('/admin/services');
-    router.prefetch('/admin/availability');
-    router.prefetch('/admin/settings');
-  }, [router]);
+  const { isAuthenticated, hasTokenExpired, error: authError, refreshAuth } = useAuthContext();
+  const lastRefreshAttemptRef = useRef<number>(0);
 
   // Don't show admin layout on auth pages
   const isAuthPage = pathname === '/admin/login' || 
                     pathname === '/admin/sign-in' || 
-                    pathname === '/admin/sign-up';
+                    pathname === '/admin/sign-up' ||
+                    pathname === '/admin/logout';
 
   if (isAuthPage) {
     return <>{children}</>;
   }
 
-  // Show authentication error message if there's an issue with Clerk
-  if (authError) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen p-4 text-center">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md">
-          <h2 className="text-xl font-bold text-red-700 mb-2">Authentication Error</h2>
-          <p className="text-red-600 mb-4">There was a problem with the authentication service. This is often temporary.</p>
-          <div className="flex flex-col gap-2">
-            <Button onClick={() => window.location.reload()} variant="outline">
-              Refresh Page
-            </Button>
-            <Button 
-              onClick={() => {
-                setAuthError(false); // Dismiss the error
-                router.push('/admin/dashboard'); // Go to dashboard
-              }} 
-              variant="outline"
-            >
-              Continue Anyway
-            </Button>
-            <Button onClick={() => router.push('/admin/sign-in')} variant="outline">
-              Return to Sign In
-            </Button>
-            <Link href="/">
-              <Button variant="outline" className="w-full">
-                Back to Home
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
+  // Handle redirection to sign-in page with error message when auth fails
+  const redirectToSignIn = (errorMessage: string) => {
+    const encodedError = encodeURIComponent(errorMessage);
+    const encodedRedirect = encodeURIComponent(pathname);
+    router.push(`/admin/sign-in?error=${encodedError}&redirect_url=${encodedRedirect}`);
+  };
+
+  // Show authentication error message if there's an issue with auth
+  if (!isAuthenticated || hasTokenExpired || authError) {
+    // Don't try to refresh more than once every 10 seconds to avoid refresh loops
+    const now = Date.now();
+    const canAttemptRefresh = now - lastRefreshAttemptRef.current > 10000;
+    
+    // Try to refresh authentication once before redirecting
+    if (canAttemptRefresh) {
+      lastRefreshAttemptRef.current = now;
+      
+      // Use a timeout to prevent blocking the UI
+      setTimeout(() => {
+        refreshAuth().then(success => {
+          if (!success) {
+            const message = authError?.message || 'Your session has expired. Please sign in again.';
+            redirectToSignIn(message);
+          }
+        });
+      }, 0);
+    } else if (!isAuthPage) {
+      // If we recently tried to refresh and still have issues, redirect
+      const message = authError?.message || 'Your session has expired. Please sign in again.';
+      redirectToSignIn(message);
+      return null; // Don't render anything during the transition
+    }
+    
+    // Show loading state while attempting to refresh
+    return <SkeletonLoader type="dashboard" />;
   }
   
   // Function to handle navigation with loading state
@@ -146,6 +125,12 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     }
   }, [pathname]);
 
+  // Handle error in the error boundary
+  const handleError = (error: Error) => {
+    console.error('Admin layout error boundary caught an error:', error);
+    // You could send this to an error tracking service
+  };
+
   return (
     <div className="flex h-screen bg-gray-100">
       {/* Sidebar */}
@@ -163,6 +148,9 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           <div className="mb-6 px-3 py-2">
             <p className="text-sm text-gray-500">Signed in as:</p>
             <p className="font-medium truncate">{user?.primaryEmailAddress?.emailAddress}</p>
+            <div className="mt-2">
+              <AuthStatus compact />
+            </div>
           </div>
           <button
             onClick={() => handleNavigation('/admin/dashboard')}
@@ -243,7 +231,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               : 'text-gray-500'
           }`}
         >
-          <Users className="h-6 w-6" />
+          <CalendarDays className="h-6 w-6" />
         </button>
         <button
           onClick={() => handleNavigation('/admin/services')}
@@ -253,22 +241,12 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               : 'text-gray-500'
           }`}
         >
-          <Sparkles className="h-6 w-6" />
-        </button>
-        <button
-          onClick={() => handleNavigation('/admin/availability')}
-          className={`p-2 rounded-md ${
-            pathname.startsWith('/admin/availability') 
-              ? 'text-blue-600' 
-              : 'text-gray-500'
-          }`}
-        >
-          <CalendarDays className="h-6 w-6" />
+          <Users className="h-6 w-6" />
         </button>
         <button
           onClick={() => handleNavigation('/admin/settings')}
           className={`p-2 rounded-md ${
-            pathname.startsWith('/admin/settings') 
+            pathname === '/admin/settings' 
               ? 'text-blue-600' 
               : 'text-gray-500'
           }`}
@@ -278,11 +256,15 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       </div>
 
       {/* Main content */}
-      <div className="flex-1 overflow-auto pb-16 md:pb-0">
+      <div className="flex-1 overflow-auto">
         {isNavigating ? (
-          <SkeletonLoader type={getSkeletonType()} />
+          <div className="p-6">
+            <SkeletonLoader type={getSkeletonType()} />
+          </div>
         ) : (
-          children
+          <ErrorBoundary onError={handleError}>
+            {children}
+          </ErrorBoundary>
         )}
       </div>
     </div>

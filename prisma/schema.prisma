@@ -1,75 +1,64 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
 
-// For local development with SQLite
 datasource db {
   provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
-// For production with Supabase PostgreSQL (uncomment when deploying)
-// datasource db {
-//   provider = "postgresql"
-//   url      = env("DATABASE_URL")
-//   directUrl = env("DIRECT_URL")
-// }
-
 model Service {
-  id          String    @id @default(cuid())
-  name        String
-  nameEn      String    // English name
-  nameFi      String    // Finnish name
-  description String    
-  descriptionEn String  // English description
-  descriptionFi String  // Finnish description
-  duration    Int       // Duration in minutes
-  price       Float
-  currency    String    @default("EUR")
-  active      Boolean   @default(true)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  bookings    Booking[]
+  id            String    @id @default(cuid())
+  name          String
+  nameEn        String
+  nameFi        String
+  description   String
+  descriptionEn String
+  descriptionFi String
+  duration      Int
+  price         Float
+  currency      String    @default("EUR")
+  active        Boolean   @default(true)
+  // IMPORTANT: This field is required for service ordering functionality
+  // If missing from the database, add with: ALTER TABLE Service ADD COLUMN "order" INTEGER DEFAULT 0;
+  order         Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  bookings      Booking[]
 }
 
 model Booking {
-  id              String   @id @default(cuid())
-  serviceId       String
-  service         Service  @relation(fields: [serviceId], references: [id])
-  customerName    String
-  customerEmail   String
-  customerPhone   String?
-  date            DateTime // Date of appointment
-  startTime       DateTime // Start time
-  endTime         DateTime // End time
-  status          String   // "confirmed", "cancelled", "completed"
-  notes           String?  
-  language        String   @default("fi") // "fi" or "en"
-  cancellationId  String?  @unique // Unique ID for cancellation link
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id             String   @id @default(cuid())
+  serviceId      String
+  customerName   String
+  customerEmail  String
+  customerPhone  String?
+  date           DateTime
+  startTime      DateTime
+  endTime        DateTime
+  status         String
+  notes          String?
+  language       String   @default("fi")
+  cancellationId String?  @unique
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  service        Service  @relation(fields: [serviceId], references: [id])
 }
 
 model Availability {
   id          String   @id @default(cuid())
-  dayOfWeek   Int      // 0-6 for Sunday-Saturday
-  startTime   String   // Format: "HH:MM" (24-hour format)
-  endTime     String   // Format: "HH:MM" (24-hour format)
+  dayOfWeek   Int
+  startTime   String
+  endTime     String
   isAvailable Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
 
 model BlockedDate {
-  id          String   @id @default(cuid())
-  date        DateTime // Full day block
-  reason      String?  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(cuid())
+  date      DateTime
+  reason    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
