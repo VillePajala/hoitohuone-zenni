@@ -11,6 +11,7 @@ import { useRouter } from 'next/navigation';
 export function useAdminAuth(redirectToLogin = false) {
   const { getToken, isSignedIn, isLoaded } = useAuth();
   const [isAuthError, setIsAuthError] = useState(false);
+  const [cachedToken, setCachedToken] = useState<string | null>(null);
   const router = useRouter();
 
   // Check if user is authenticated when the component mounts
@@ -23,21 +24,44 @@ export function useAdminAuth(redirectToLogin = false) {
         }
       } else {
         setIsAuthError(false);
+        // Pre-fetch and cache the token when user is signed in
+        getToken().then(token => {
+          if (token) {
+            setCachedToken(token);
+            console.log('Auth token cached successfully');
+          }
+        }).catch(err => {
+          console.error('Failed to cache auth token:', err);
+        });
       }
     }
-  }, [isLoaded, isSignedIn, redirectToLogin, router]);
+  }, [isLoaded, isSignedIn, redirectToLogin, router, getToken]);
 
   /**
    * Make an authenticated fetch request
    */
   const authFetch = useCallback(async (url: string, options: RequestInit = {}) => {
     try {
-      const token = await getToken();
+      // Try to use cached token first for better performance
+      let token = cachedToken;
+      
+      // If no cached token or we want to ensure fresh token, get a new one
       if (!token) {
+        console.log(`No cached token found, fetching new token for ${url}`);
+        token = await getToken();
+        if (token) {
+          setCachedToken(token);
+        }
+      }
+      
+      if (!token) {
+        console.error('No auth token available for request to:', url);
         setIsAuthError(true);
         throw new Error('Authentication required');
       }
 
+      console.log(`Making authenticated request to ${url}`);
+      
       const headers = {
         ...(options.headers || {}),
         'Authorization': `Bearer ${token}`,
@@ -49,6 +73,11 @@ export function useAdminAuth(redirectToLogin = false) {
       });
 
       if (response.status === 401) {
+        console.error('Unauthorized response received, token may be invalid');
+        // Clear cached token and try to get a fresh one
+        setCachedToken(null);
+        
+        // Only throw if we can't immediately refresh the token
         setIsAuthError(true);
         throw new Error('Unauthorized - Please sign in to access this resource');
       }
@@ -58,7 +87,7 @@ export function useAdminAuth(redirectToLogin = false) {
       console.error('Auth fetch error:', error);
       throw error;
     }
-  }, [getToken]);
+  }, [getToken, cachedToken]);
 
   /**
    * Helper for GET requests
@@ -125,6 +154,25 @@ export function useAdminAuth(redirectToLogin = false) {
     router.push('/admin/sign-in');
   }, [router]);
 
+  /**
+   * Force token refresh 
+   */
+  const refreshToken = useCallback(async () => {
+    try {
+      setCachedToken(null);
+      const newToken = await getToken({ skipCache: true });
+      if (newToken) {
+        setCachedToken(newToken);
+        console.log('Auth token refreshed successfully');
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Failed to refresh token:', error);
+      return false;
+    }
+  }, [getToken]);
+
   return {
     isLoading: !isLoaded,
     isAuthError,
@@ -134,5 +182,6 @@ export function useAdminAuth(redirectToLogin = false) {
     authPost,
     authDelete,
     redirectToLoginPage,
+    refreshToken,
   };
 } 

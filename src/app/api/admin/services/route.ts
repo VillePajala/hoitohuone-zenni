@@ -2,28 +2,54 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getAuth } from '@clerk/nextjs/server';
 
-// Helper function to check authentication
+// Force dynamic rendering and bypass middleware caching
+export const dynamic = 'force-dynamic';
+
+// Helper function to check authentication with improved logging
 function checkAuth(req: NextRequest) {
-  // Check if user is authenticated via Clerk
-  const { userId } = getAuth(req);
-  if (userId) return true;
-  
-  // Check for Bearer token
-  const authHeader = req.headers.get('authorization');
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    return true;
+  try {
+    // Check if user is authenticated via Clerk
+    const { userId } = getAuth(req);
+    
+    if (userId) {
+      console.log('User authenticated via Clerk session:', userId);
+      return true;
+    }
+    
+    // Check for Bearer token
+    const authHeader = req.headers.get('authorization');
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      console.log('User authenticated via Bearer token');
+      // Validate token format - should be non-empty after Bearer prefix
+      const token = authHeader.substring(7).trim();
+      if (token.length > 0) {
+        return true;
+      } else {
+        console.error('Empty Bearer token provided');
+        return false;
+      }
+    }
+    
+    console.error('No valid authentication found in request');
+    return false;
+  } catch (error) {
+    console.error('Error in auth check:', error);
+    return false;
   }
-  
-  return false;
 }
 
 // GET /api/admin/services - Get all services
 export async function GET(req: NextRequest) {
   try {
     console.log('Getting services...');
+    console.log('Request headers:', JSON.stringify({
+      authorization: req.headers.get('authorization') ? 'Present (contents hidden)' : 'Missing',
+      cookie: req.headers.get('cookie') ? 'Present (contents hidden)' : 'Missing'
+    }));
     
     // Check authentication
     if (!checkAuth(req)) {
+      console.error('Authentication failed - returning 401');
       return NextResponse.json(
         { error: 'Unauthorized - Please sign in to access this resource' },
         { status: 401 }
