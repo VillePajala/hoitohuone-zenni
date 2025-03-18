@@ -1,210 +1,179 @@
 # Next Steps for Hoitohuone Zenni Booking System
 
-## Services Management Interface
+This document outlines the next steps for the Hoitohuone Zenni booking system development, arranged in priority order. It's been updated to reflect the current state of the project as of the latest pull from March 2024.
 
-### Completed
-- Created dedicated pages for service creation and editing
-- Implemented proper routing between services list and edit/create pages
-- Added service activation/deactivation functionality
-- Improved error handling and loading states
-- Enhanced the services list with a more user-friendly table layout
-- Added confirmation for service deletion
-- Implemented proper form validation for service creation/editing
-- Added service ordering functionality with drag-and-drop interface
-- Created API endpoint to save service order
-- Fixed database schema to properly support service ordering
+## Priority 1: Architecture Improvements (Critical)
 
-### Next Steps for Services Management
+While the booking system is functional, there are critical architectural improvements needed to ensure stability, maintainability, and scalability:
 
-1. **Enhance Service Form with Additional Features**
-   - Add image upload capability for service thumbnails
-   - Implement rich text editor for service descriptions
-   - Add color coding options for services
+1. **Database Optimization**
+   - Continue using SQLite with Prisma for the current development phase
+   - Implement proper error handling for database operations
+   - Add transactions for related database operations
+   - Ensure schema decisions are compatible with future PostgreSQL migration
+   - **Note**: Migration to PostgreSQL/Supabase has been postponed due to VPN restrictions
 
-2. **Implement Service Categories**
-   - Create database schema for service categories
-   - Add category selection to service form
-   - Update services list to group by category
-   - Create category management interface
+2. **Authentication Consolidation**
+   - Merge overlapping functionality between AuthContext and useAdminAuth hook
+   - Simplify token refresh mechanism to reduce complexity
+   - Implement proper session management instead of manually tracking token expiry
+   - Improve error handling in authentication flows
 
-3. **Add Service Analytics**
-   - Track service popularity (number of bookings)
-   - Display revenue by service
-   - Show booking trends for each service
+3. **API Structure Standardization**
+   - Choose either src/api or src/app/api for route handlers (recommended: use app/api consistently)
+   - Implement middleware for common API concerns (validation, error handling, authentication)
+   - Create standardized response formatting across all endpoints
+   - Replace excessive console.log statements with proper logging system
 
-4. **Improve Mobile Experience**
-   - Optimize service form for mobile devices
-   - Enhance service list for smaller screens
-   - Test on various mobile devices
+4. **Data Access Layer Improvement**
+   - Implement repository pattern to abstract database access
+   - Create service classes to centralize business logic
+   - Add robust data validation before database operations
+   - Ensure database access patterns will work with both SQLite and PostgreSQL
 
-## Availability Management System
+## Priority 2: Enhance Current Features
 
-### Completed
-- Created weekly schedule editor interface with time slot management
-- Implemented basic blocked dates interface with calendar date selection
-- Developed API endpoints for fetching and updating weekly availability
-- Created API endpoints for managing blocked dates
-- Added form validation for time slot entries
-- Implemented error handling and loading states
-- Added bulk operations for weekly schedule management:
-  - Copy day feature to duplicate schedule between days
-  - Clear day functionality to reset a day's time slots
-  - Schedule templates (standard business, extended, weekend)
-- Implemented time slot validation to prevent overlaps
-- Added calendar visualization for blocked dates and bookings in the admin panel
-- Implemented lazy loading for heavy availability components
-- Created proper types and interfaces for availability data structures
+These improvements build upon existing functionality to provide a more complete and polished experience:
 
-### Next Steps for Availability Management
+### Availability Management System
+- Improve visual feedback for time slot conflicts
+- Enhance blocked dates interface with time range blocking
+- Create visual calendar showing all bookings and availability
+- Implement recurring blocked dates functionality
+- Add conflict detection and resolution system
 
-1. **Improve Time Validation and Visual Feedback**
-   - Add visual indicators for conflicting time slots
-   - Implement more intuitive UI for adding/removing slots
-   - Add validation warnings with colored highlights
+### Booking Management
+- Add advanced filtering options (by date range, service, status)
+- Implement search functionality for bookings
+- Create sorting options for booking lists
+- Add pagination for large booking lists
+- Implement booking editing and rescheduling functionality
+- Create booking notes system
 
-2. **Enhance Blocked Dates Interface**
-   - Improve the calendar visualization
-   - Add functionality to block specific time ranges within a day
-   - Implement recurring blocked dates
-   - Add batch operations for blocking date ranges
+### Services Management
+- Add image upload capability for service thumbnails
+- Implement rich text editor for service descriptions
+- Add service categories functionality
+- Track service popularity and revenue
+- Enhance mobile experience for service management
 
-3. **Create Visual Calendar for Bookings and Availability**
-   - Implement month/week/day views
-   - Show bookings and availability in calendar
-   - Add drag-and-drop for booking management
-   - Create visual indicators for fully booked vs. partially available days
+## Priority 3: Testing and Quality Assurance
 
-4. **Enhance Conflict Detection System**
-   - Add automated validation for booking conflicts
-   - Implement warnings for potential scheduling conflicts
-   - Create conflict resolution interface
-   - Add automatic notification for scheduling conflicts
+Ensuring the reliability and stability of the booking system is critical:
 
-## Booking Management Enhancements
+1. **Automated Testing**
+   - Implement end-to-end testing with Cypress or Playwright
+   - Create unit tests for API endpoints and critical components
+   - Add integration tests for key features
+   - Set up test coverage reporting
 
-### Completed
-- Basic booking list with service details
-- Individual booking view
-- Status management (confirmed, cancelled)
-- Booking email notifications
+2. **Performance Optimization**
+   - Implement server-side caching for frequently accessed data
+   - Add appropriate cache headers for API responses
+   - Use static generation for suitable pages
+   - Implement code splitting for admin panel
+   - Add performance monitoring
 
-### Next Steps for Booking Management
+3. **Security Audit**
+   - Review authentication and authorization implementations
+   - Check for common security vulnerabilities
+   - Add CSRF protection for all forms
+   - Implement proper security headers
 
-1. **Improve Booking List**
-   - Add advanced filtering options (by date range, service, status)
-   - Implement search functionality
-   - Create sorting options
-   - Add pagination for large booking lists
+## Priority 4: Admin Dashboard Enhancements
 
-2. **Enhance Booking Details**
-   - Add ability to edit booking details
-   - Implement rescheduling functionality
-   - Create booking notes system
-   - Add customer history view
+Improving the admin experience with better insights and tools:
 
-3. **Add Export Functionality**
-   - CSV export for bookings
-   - PDF generation for booking reports
-   - Calendar export (iCal format)
-   - Email reports
-
-4. **Implement Mobile Optimizations**
-   - Responsive design for all booking screens
-   - Touch-friendly interfaces
-   - Optimized views for small screens
-   - Mobile-specific features (click-to-call, etc.)
-
-## Admin Dashboard Enhancements
-
-1. **Develop Dashboard Overview**
+1. **Dashboard Visualization**
    - Create statistics widgets (bookings, revenue)
    - Add upcoming bookings list
    - Implement booking pattern charts
    - Add revenue forecasting
 
-2. **Add Quick Access Functions**
-   - Create shortcuts to common tasks
+2. **Reporting and Analytics**
+   - Create exportable reports (CSV, PDF)
+   - Implement calendar export (iCal format)
+   - Add email report scheduling
+   - Create custom report builder
+
+3. **Quick Access Functions**
+   - Add shortcuts to common tasks
    - Implement notification center
-   - Add search functionality
-   - Create recent activity log
+   - Create search functionality across all admin sections
+   - Add recent activity log
 
-## Testing and Quality Assurance
+## Priority 5: Content and SEO Finalization
 
-1. **Implement End-to-End Testing**
-   - Set up Cypress or Playwright
-   - Create test scenarios for critical paths
-   - Implement automated testing workflow
-   - Add CI integration
+Preparing for production deployment:
 
-2. **Add Unit Tests**
-   - Create tests for API endpoints
-   - Implement component tests
-   - Add integration tests for key features
-   - Set up test coverage reporting
+1. **Content Completion**
+   - Add professional images for services and pages
+   - Optimize all images for web performance
+   - Complete all content translations
+   - Review and finalize copy across all pages
 
-3. **Perform Security Audit**
-   - Review authentication and authorization
-   - Check for common vulnerabilities
-   - Implement security best practices 
-   - Add CSRF protection for all forms 
+2. **SEO Optimization**
+   - Complete metadata implementation
+   - Add business details to structured data
+   - Implement robots.txt and sitemap.xml
+   - Set up Google site verification
+   - Review all image alt tags
 
-## Architecture Improvements
+## Priority 6: Compliance and Legal
 
-Based on a comprehensive analysis of the codebase, the following architectural improvements are recommended to enhance maintainability, performance, and scalability:
+Ensuring legal compliance for the site:
 
-### Authentication Enhancements
-1. **Consolidate Authentication Logic**
-   - Merge overlapping functionality between AuthContext and useAdminAuth hook
-   - Simplify token refresh mechanism to reduce complexity
-   - Implement proper session management instead of manually tracking token expiry
+1. **GDPR Compliance**
+   - Implement cookie consent system
+   - Create privacy policy page
+   - Implement data retention policies
+   - Add data export/deletion functionality
 
-2. **Standardize Auth Flow**
-   - Create clear separation between authentication strategies for different parts of the app
-   - Improve error handling in authentication flows
-   - Reduce redundant auth checks across components
+2. **Legal Documentation**
+   - Create terms of service page
+   - Add booking cancellation policy
+   - Implement cookie policy
+   - Create accessibility statement
 
-### API Structure Optimization
-1. **Standardize API Directory Structure**
-   - Choose either src/api or src/app/api for route handlers (recommended: use app/api consistently)
-   - Implement middleware for common API concerns
-   - Create API versioning strategy for future-proofing
+## Priority 7: Production Preparation
 
-2. **Improve Request Handling**
-   - Implement proper logging (replace excessive console.log statements)
-   - Add request validation middleware
-   - Create consistent response formatting across all endpoints
+Final steps before production deployment:
 
-### Database Management Improvements
-1. **Connection Optimization**
-   - Implement connection pooling or persistent connections
-   - Use transactions for related database operations
-   - Consider migrating to PostgreSQL for production (currently using SQLite)
+1. **Infrastructure Setup**
+   - Configure production environment
+   - Set up CI/CD pipeline
+   - Implement monitoring system
+   - Create backup strategy
+   - Set up error tracking
 
-2. **Data Access Layer**
-   - Implement repository pattern to abstract database access
-   - Create service classes to centralize business logic
-   - Add robust data validation before database operations
+2. **Analytics Implementation**
+   - Set up Google Analytics
+   - Configure conversion tracking
+   - Implement user behavior tracking
+   - Create performance monitoring
 
-### Performance Optimizations
-1. **Caching Strategy**
-   - Implement server-side caching for frequently accessed data
-   - Use static generation for suitable pages
-   - Add appropriate cache headers for API responses
+## Priority 8: Database Migration and Future Enhancements
 
-2. **Code Splitting and Lazy Loading**
-   - Review and optimize component bundling
-   - Implement code splitting for admin panel
-   - Use dynamic imports for heavy components
+After initial release and when VPN restrictions allow:
 
-### General Architecture
-1. **Code Organization**
-   - Standardize naming conventions across routes and components
-   - Extract duplicate logic to shared utilities
-   - Implement consistent error handling strategy
+1. **PostgreSQL/Supabase Migration**
+   - Implement migration from SQLite to Supabase PostgreSQL
+   - Configure connection pooling
+   - Test all functionality after migration
+   - Optimize queries for PostgreSQL
+   - Set up proper backup and recovery procedures
 
-2. **Testing Infrastructure**
-   - Create comprehensive test strategy (unit, integration, E2E)
-   - Implement test coverage reporting
-   - Set up CI pipeline for automated testing
+2. **Additional Modules**
+   - Newsletter integration
+   - Blog/News section
+   - Customer feedback system
+   - Social media feed integration
+   - Loyalty program system
 
-The implementation of these improvements should be prioritized based on current development goals and timelines. Consider implementing critical items first, such as database connection optimization and API structure standardization. 
+3. **UI/UX Improvements**
+   - Dark mode support
+   - Accessibility enhancements
+   - Animation refinements
+   - Mobile app integration
+
+By focusing on these priorities in sequence, we can ensure a stable, scalable, and feature-rich booking system that meets the needs of both customers and administrators. 
