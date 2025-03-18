@@ -22,6 +22,10 @@ import {
 import { Search, CalendarRange, Clock, MoreVertical, RefreshCcw } from 'lucide-react';
 import { SkeletonLoader } from "@/components/admin/SkeletonLoader";
 import { format, parseISO } from 'date-fns';
+import { useAdminAuth } from '@/hooks/useAdminAuth';
+import { withErrorBoundary } from '@/components/ErrorBoundary';
+import { ErrorDisplay } from '@/components/ui/ErrorDisplay';
+import { ErrorType, logError } from '@/lib/errorHandling';
 
 interface Service {
   id: string;
@@ -53,16 +57,18 @@ interface Booking {
   status: 'confirmed' | 'cancelled' | 'completed' | 'no-show' | string;
 }
 
-export default function BookingsPage() {
+function BookingsPage() {
   const router = useRouter();
+  const { authGet, isAuthError, refreshToken } = useAdminAuth(true); // Redirect to login if not authenticated
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [serviceFilter, setServiceFilter] = useState<string>('all');
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<Error | null>(null);
   const [services, setServices] = useState<Service[]>([]);
+  const [authRetryCount, setAuthRetryCount] = useState(0);
 
   // Filter bookings based on all filters
   const filteredBookings = bookings.filter(booking => {
@@ -89,21 +95,30 @@ export default function BookingsPage() {
   useEffect(() => {
     const fetchServices = async () => {
       try {
-        const response = await fetch('/api/admin/services');
-        if (!response.ok) {
-          console.error('Failed to fetch services');
-          return;
-        }
-        
-        const data = await response.json();
+        // Try to use authGet for authenticated requests
+        const data = await authGet('/api/admin/services');
         setServices(data);
+        setError(null);
       } catch (error) {
-        console.error('Error fetching services:', error);
+        logError(error, 'Fetching services');
+        
+        // If auth error and we haven't retried too many times, try refreshing token
+        if (isAuthError && authRetryCount < 2) {
+          console.log('Auth error detected, attempting to refresh token...');
+          const refreshed = await refreshToken();
+          if (refreshed) {
+            setAuthRetryCount(prev => prev + 1);
+            // Retry fetch after successful refresh
+            fetchServices();
+          }
+        } else {
+          setError(error as Error);
+        }
       }
     };
     
     fetchServices();
-  }, []);
+  }, [authGet, isAuthError, refreshToken, authRetryCount]);
 
   // Fetch bookings from API
   useEffect(() => {
@@ -117,75 +132,113 @@ export default function BookingsPage() {
       
       console.log('Fetching bookings from API...');
       
-      // Try the regular endpoint first
-      let response = await fetch('/api/admin/bookings');
+      // Try to use authGet for authenticated requests
+      try {
+        const bookingData = await authGet('/api/admin/bookings');
+        if (bookingData && bookingData.bookings) {
+          processBookingData(bookingData.bookings);
+          return;
+        }
+      } catch (authError) {
+        logError(authError, 'Error with authenticated bookings request');
+        
+        // If auth error and we haven't retried too many times, try refreshing token
+        if (isAuthError && authRetryCount < 2) {
+          console.log('Auth error detected, attempting to refresh token...');
+          const refreshed = await refreshToken();
+          if (refreshed) {
+            setAuthRetryCount(prev => prev + 1);
+            // Retry after token refresh without falling back to debug endpoint
+            fetchBookings();
+            return;
+          }
+        }
+        
+        // Only set error if it's not an auth error (which will be handled by useAdminAuth)
+        // or if we've already retried
+        if (!isAuthError || authRetryCount >= 2) {
+          setError(authError as Error);
+        }
+        
+        // If token refresh failed or too many retries, fallback to regular fetch
+        console.log('Falling back to standard fetch after auth failure');
+      }
+      
+      // Regular fetch as fallback (will be handled by middleware)
+      const response = await fetch('/api/admin/bookings');
       
       // If the regular endpoint fails, try the debug endpoint
       if (!response.ok) {
         console.log('Regular bookings endpoint failed, trying debug endpoint...');
-        response = await fetch('/api/admin/bookings/debug-data');
+        const debugResponse = await fetch('/api/admin/bookings/debug-data');
         
-        if (!response.ok) {
-          throw new Error(`Failed to fetch bookings from both endpoints: ${response.status} ${response.statusText}`);
+        if (!debugResponse.ok) {
+          setError(new Error(`Failed to fetch bookings from both endpoints: ${response.status} ${response.statusText}`));
+          return;
+        }
+        
+        const debugData = await debugResponse.json();
+        processBookingData(debugData);
+      } else {
+        const responseData = await response.json();
+        if (responseData && responseData.bookings) {
+          processBookingData(responseData.bookings);
+        } else {
+          processBookingData(responseData);
         }
       }
-
-      const responseData = await response.json();
-      console.log('Raw booking data received:', responseData);
-      
-      // Check if the response is an array
-      if (!Array.isArray(responseData)) {
-        console.error('API did not return an array:', responseData);
-        if (responseData.error) {
-          throw new Error(`API error: ${responseData.error}`);
-        }
-        throw new Error('API did not return a valid bookings array');
-      }
-      
-      if (responseData.length === 0) {
-        console.log('No bookings found in API response');
-        setBookings([]);
-        setIsLoading(false);
-        setIsRefreshing(false);
-        return;
-      }
-      
-      // Transform the data to match our frontend structure
-      const transformedBookings: Booking[] = [];
-      
-      for (const booking of responseData) {
-        try {
-          // Log each booking data for debugging
-          console.log('Processing booking:', JSON.stringify(booking));
-          
-          const transformedBooking = {
-            id: booking.id || 'unknown',
-            customerName: booking.customerName || 'Unknown',
-            customerEmail: booking.customerEmail || 'unknown@example.com',
-            service: booking.service?.nameFi || booking.service?.name || 'Unknown Service',
-            serviceId: booking.service?.id || 'unknown',
-            date: booking.date ? formatDateString(booking.date) : 'Invalid Date',
-            startTime: booking.startTime ? formatTimeString(booking.startTime) : 'Invalid Time',
-            endTime: booking.endTime ? formatTimeString(booking.endTime) : 'Invalid Time',
-            status: booking.status || 'unknown'
-          };
-          
-          console.log('Transformed booking:', transformedBooking);
-          transformedBookings.push(transformedBooking);
-        } catch (err) {
-          console.error('Error transforming booking:', err, booking);
-        }
-      }
-      
-      console.log(`Successfully transformed ${transformedBookings.length} bookings`);
-      setBookings(transformedBookings);
     } catch (error) {
-      console.error('Error fetching bookings:', error);
-      setError(error instanceof Error ? error.message : 'Unknown error occurred');
+      logError(error, 'Error fetching bookings');
+      setError(error as Error);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
     }
+  };
+
+  // Process booking data from any source
+  const processBookingData = (data: any[]) => {
+    if (!Array.isArray(data)) {
+      logError('API did not return an array', data);
+      setBookings([]);
+      return;
+    }
+    
+    if (data.length === 0) {
+      console.log('No bookings found in API response');
+      setBookings([]);
+      return;
+    }
+    
+    // Transform the data to match our frontend structure
+    const transformedBookings: Booking[] = [];
+    
+    for (const booking of data) {
+      try {
+        // Log each booking data for debugging
+        console.log('Processing booking:', JSON.stringify(booking));
+        
+        const transformedBooking = {
+          id: booking.id || 'unknown',
+          customerName: booking.customerName || 'Unknown',
+          customerEmail: booking.customerEmail || 'unknown@example.com',
+          service: booking.service?.nameFi || booking.service?.name || 'Unknown Service',
+          serviceId: booking.service?.id || 'unknown',
+          date: booking.date ? formatDateString(booking.date) : 'Invalid Date',
+          startTime: booking.startTime ? formatTimeString(booking.startTime) : 'Invalid Time',
+          endTime: booking.endTime ? formatTimeString(booking.endTime) : 'Invalid Time',
+          status: booking.status || 'unknown'
+        };
+        
+        console.log('Transformed booking:', transformedBooking);
+        transformedBookings.push(transformedBooking);
+      } catch (err) {
+        logError(err, `Error transforming booking: ${booking?.id || 'unknown'}`);
+      }
+    }
+    
+    console.log(`Successfully transformed ${transformedBookings.length} bookings`);
+    setBookings(transformedBookings);
   };
 
   const handleViewBooking = (id: string) => {
@@ -278,266 +331,233 @@ export default function BookingsPage() {
     return bookings.filter(booking => booking.status === status).length;
   };
 
-  // Show skeleton loader while loading data
-  if (isLoading) {
-    return <SkeletonLoader type="bookings" />;
-  }
+  // Handle manual refresh with token refresh attempt
+  const handleRefresh = async () => {
+    // First try to refresh the auth token
+    await refreshToken();
+    // Then fetch bookings
+    fetchBookings();
+  };
 
-  // Show error state if there was an error
+  // Show error if there's an issue
   if (error) {
     return (
-      <div className="p-6 max-w-7xl mx-auto">
-        <Card>
-          <CardContent className="p-6 text-center">
-            <p className="text-lg text-red-600 mb-4">Error loading bookings: {error}</p>
-            <Button 
-              onClick={() => {
-                setIsLoading(true);
-                fetchBookings();
-              }}
-            >
-              Try Again
-            </Button>
-          </CardContent>
-        </Card>
+      <div className="p-6">
+        <ErrorDisplay 
+          message={error.message || 'Failed to load bookings'}
+          onRetry={handleRefresh}
+          type={error.name === 'ApplicationError' 
+            ? (error as any).type 
+            : ErrorType.UNKNOWN}
+        />
       </div>
     );
   }
 
-  if (bookings.length === 0) {
+  // Show skeleton loader while loading data
+  if (isLoading) {
     return (
-      <div className="p-6 max-w-7xl mx-auto">
-        <Card>
-          <CardContent className="p-6 text-center">
-            <p className="text-lg text-gray-500 my-8">No bookings found in the database</p>
-            <div className="flex flex-col gap-4 max-w-md mx-auto">
-              <Button 
-                variant="outline"
-                onClick={() => {
-                  setIsLoading(true);
-                  fetchBookings();
-                }}
-              >
-                Refresh Bookings
-              </Button>
-              
-              <p className="text-sm text-gray-500 my-2">If refreshing doesn't work, try creating test data:</p>
-              
-              <Button 
-                variant="default"
-                onClick={async () => {
-                  try {
-                    setIsLoading(true);
-                    const response = await fetch('/api/debug/seed');
-                    if (!response.ok) {
-                      throw new Error('Failed to seed database');
-                    }
-                    
-                    const data = await response.json();
-                    console.log('Seed result:', data);
-                    
-                    if (data.success) {
-                      alert(`Seed successful! Created ${data.bookingCount} bookings.`);
-                      fetchBookings();
-                    } else {
-                      alert('Seed failed. Check console for details.');
-                    }
-                  } catch (error) {
-                    console.error('Error seeding database:', error);
-                    alert('Error seeding database. Check console for details.');
-                  } finally {
-                    setIsLoading(false);
-                  }
-                }}
-              >
-                Create Test Bookings
-              </Button>
-              
-              <Button 
-                variant="outline"
-                onClick={() => window.location.href = '/admin/bookings/debug'}
-              >
-                Go to Debug Page
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="p-6">
+        <SkeletonLoader type="bookings" />
       </div>
     );
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
-        <h1 className="text-3xl font-bold">Bookings</h1>
-        <div className="flex flex-col sm:flex-row gap-2">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Search bookings..."
-              className="pl-8 w-full"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          <Button 
-            variant="outline" 
-            size="icon"
-            onClick={() => {
-              setIsRefreshing(true);
-              fetchBookings();
-            }}
-            disabled={isRefreshing}
-            className="shrink-0"
+    <div className="p-4 space-y-4">
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold">Bookings</h1>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={handleRefresh} 
+          disabled={isRefreshing}
+        >
+          <RefreshCcw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
+      </div>
+      
+      <div className="flex flex-col md:flex-row items-center gap-4 mb-4">
+        <div className="relative w-full md:w-auto">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+          <Input
+            type="text"
+            placeholder="Search bookings..."
+            className="pl-8 w-full md:w-auto"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+        
+        <div className="flex gap-2 w-full md:w-auto">
+          <Select
+            value={statusFilter}
+            onValueChange={setStatusFilter}
           >
-            <RefreshCcw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-          </Button>
+            <SelectTrigger className="w-full md:w-[180px]">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="confirmed">Confirmed</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
+              <SelectItem value="cancelled">Cancelled</SelectItem>
+              <SelectItem value="no-show">No Show</SelectItem>
+            </SelectContent>
+          </Select>
+          
+          <Select
+            value={serviceFilter}
+            onValueChange={setServiceFilter}
+          >
+            <SelectTrigger className="w-full md:w-[180px]">
+              <SelectValue placeholder="Service" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Services</SelectItem>
+              {services.map(service => (
+                <SelectItem key={service.id} value={service.id}>
+                  {service.nameFi || service.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
-
-      {/* Filters */}
-      <div className="flex flex-col md:flex-row gap-4 mb-6">
-        <div className="flex-1 max-w-xs">
-          <label className="text-sm font-medium mb-1 block text-gray-700">Status</label>
-          <Tabs defaultValue="all" className="w-full" onValueChange={setStatusFilter}>
-            <TabsList className="w-full grid grid-cols-4">
-              <TabsTrigger value="all">
-                All ({getStatusCount('all')})
-              </TabsTrigger>
-              <TabsTrigger value="confirmed">
-                Active ({getStatusCount('confirmed')})
-              </TabsTrigger>
-              <TabsTrigger value="completed">
-                Done ({getStatusCount('completed')})
-              </TabsTrigger>
-              <TabsTrigger value="cancelled">
-                Cancelled ({getStatusCount('cancelled')})
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
-
-        {services.length > 0 && (
-          <div className="flex-1 max-w-xs">
-            <label className="text-sm font-medium mb-1 block text-gray-700">Service</label>
-            <Select value={serviceFilter} onValueChange={setServiceFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="Filter by service" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Services</SelectItem>
-                {services.map(service => (
-                  <SelectItem key={service.id} value={service.id}>
-                    {service.nameFi || service.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
-      </div>
-
-      {filteredBookings.length > 0 ? (
-        <div className="grid gap-4">
-          {filteredBookings.map((booking) => (
-            <Card key={booking.id} className={`${booking.status === 'cancelled' ? 'bg-gray-50' : ''}`}>
-              <CardContent className="p-6">
-                <div className="flex flex-col md:flex-row md:justify-between md:items-center">
-                  <div className="flex-1">
-                    <h3 className="text-lg font-medium">{booking.customerName}</h3>
-                    <p className="text-sm text-muted-foreground">{booking.customerEmail}</p>
-                    <p className="mt-1">{booking.service}</p>
-                    
-                    <div className="mt-2 flex items-center flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                      <div className="flex items-center">
-                        <CalendarRange className="mr-2 h-4 w-4" />
-                        <span>{booking.date}</span>
-                      </div>
-                      <div className="flex items-center">
-                        <Clock className="mr-2 h-4 w-4" />
-                        <span>{booking.startTime} - {booking.endTime}</span>
-                      </div>
-                    </div>
-                    
-                    <div className="mt-2">
-                      {booking.status === 'confirmed' ? (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                          Confirmed
-                        </span>
-                      ) : booking.status === 'cancelled' ? (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                          Cancelled
-                        </span>
-                      ) : booking.status === 'completed' ? (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                          Completed
-                        </span>
-                      ) : booking.status === 'no-show' ? (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                          No Show
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                          {booking.status}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div className="mt-4 md:mt-0 flex space-x-2">
-                    <Button 
-                      variant="outline" 
-                      onClick={() => handleViewBooking(booking.id)}
-                    >
-                      View Details
-                    </Button>
-                    
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="icon">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleViewBooking(booking.id)}>
-                          View Details
-                        </DropdownMenuItem>
-                        {booking.status === 'confirmed' && (
-                          <DropdownMenuItem 
-                            onClick={() => handleCancelBooking(booking.id)}
-                            className="text-red-600"
-                          >
-                            Cancel Booking
-                          </DropdownMenuItem>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : (
+      
+      {/* Status cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-4">
         <Card>
-          <CardContent className="p-6 text-center">
-            <p className="text-lg text-gray-500 my-8">No bookings found matching your filters</p>
-            {(searchTerm || statusFilter !== 'all' || serviceFilter !== 'all') && (
-              <Button 
-                variant="outline"
-                onClick={() => {
-                  setSearchTerm('');
-                  setStatusFilter('all');
-                  setServiceFilter('all');
-                }}
-              >
-                Clear Filters
-              </Button>
-            )}
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base text-gray-500">Total Bookings</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">{bookings.length}</p>
           </CardContent>
         </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base text-green-600">Confirmed</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">{getStatusCount('confirmed')}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base text-blue-600">Completed</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">{getStatusCount('completed')}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base text-red-600">Cancelled</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">{getStatusCount('cancelled')}</p>
+          </CardContent>
+        </Card>
+      </div>
+      
+      {/* Bookings table */}
+      {filteredBookings.length > 0 ? (
+        <div className="border rounded-lg overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-gray-50 border-b">
+                  <th className="px-4 py-3 text-left font-medium text-gray-500">Customer</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-500">Service</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-500 whitespace-nowrap">
+                    <CalendarRange className="h-4 w-4 inline-block mr-1" />
+                    Date
+                  </th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-500 whitespace-nowrap">
+                    <Clock className="h-4 w-4 inline-block mr-1" />
+                    Time
+                  </th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-500">Status</th>
+                  <th className="px-4 py-3 text-right font-medium text-gray-500">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredBookings.map((booking) => (
+                  <tr key={booking.id} className="border-b hover:bg-gray-50">
+                    <td className="px-4 py-3">
+                      <div>
+                        <p className="font-medium">{booking.customerName}</p>
+                        <p className="text-gray-500 text-xs">{booking.customerEmail}</p>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">{booking.service}</td>
+                    <td className="px-4 py-3 whitespace-nowrap">{booking.date}</td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {booking.startTime.substring(0, 5)} - {booking.endTime.substring(0, 5)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span 
+                        className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
+                          booking.status === 'confirmed' ? 'bg-green-100 text-green-800' :
+                          booking.status === 'completed' ? 'bg-blue-100 text-blue-800' :
+                          booking.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                          booking.status === 'no-show' ? 'bg-amber-100 text-amber-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}
+                      >
+                        {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem 
+                            onClick={() => handleViewBooking(booking.id)}
+                          >
+                            View Details
+                          </DropdownMenuItem>
+                          <DropdownMenuItem>
+                            Edit Status
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="text-red-600">
+                            Cancel Booking
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : (
+        <div className="text-center py-10 border rounded-lg">
+          <p className="text-gray-500">No bookings found matching your filters.</p>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => {
+              setSearchTerm('');
+              setStatusFilter('all');
+              setServiceFilter('all');
+            }}
+            className="mt-2"
+          >
+            Clear Filters
+          </Button>
+        </div>
       )}
     </div>
   );
-} 
+}
+
+// Wrap the page with an error boundary
+export default withErrorBoundary(BookingsPage); 
