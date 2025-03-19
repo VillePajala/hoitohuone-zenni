@@ -1,48 +1,132 @@
-import { NextResponse } from 'next/server';
-import { add, format, parse, isWeekend } from 'date-fns';
+import { 
+  createGetHandler,
+  success,
+  validationError,
+  log,
+  string,
+  createObjectValidator
+} from '@/lib/api';
+import { prisma } from '@/lib/prisma';
+import { format, isSameDay } from 'date-fns';
 
-// Mock function to get available dates
-// In production, this would query the database for actual availability
-export async function GET(request: Request) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const month = searchParams.get('month');
-    const year = searchParams.get('year');
-    const serviceId = searchParams.get('serviceId');
+// Query parameters validation schema
+interface AvailableDatesQueryParams {
+  month: string;
+  year: string;
+  serviceId?: string;
+}
 
-    if (!month || !year) {
-      return NextResponse.json(
-        { error: 'Month and year are required' },
-        { status: 400 }
-      );
+const querySchema = createObjectValidator<AvailableDatesQueryParams>({
+  month: string({ required: true }),
+  year: string({ required: true }),
+  serviceId: string()
+});
+
+// GET /api/available-dates?month=MM&year=YYYY&serviceId=xxx
+export const GET = createGetHandler(
+  async ({ query, requestId }) => {
+    const { month, year, serviceId } = query as AvailableDatesQueryParams;
+    
+    log.info('Fetching available dates', { requestId, month, year, serviceId });
+    
+    // Validate and parse date
+    const monthNum = parseInt(month, 10);
+    const yearNum = parseInt(year, 10);
+    
+    if (
+      isNaN(monthNum) || 
+      isNaN(yearNum) || 
+      monthNum < 1 || 
+      monthNum > 12 || 
+      yearNum < 2000 || 
+      yearNum > 2100
+    ) {
+      return validationError('Invalid month or year format');
     }
-
-    // For demo purposes, generate some available dates for the specified month
-    // In a real application, this would come from your database
-    const startDate = parse(`${year}-${month}-01`, 'yyyy-MM-dd', new Date());
-    const endDate = add(startDate, { months: 1 });
     
-    // Generate dates for the month
-    const availableDates = [];
-    let currentDate = startDate;
+    // Start and end dates for the month
+    const startDate = new Date(yearNum, monthNum - 1, 1); // Month is 0-indexed in JS Date
+    const endDate = new Date(yearNum, monthNum, 0); // Last day of the month
     
-    while (currentDate < endDate) {
-      // Skip weekends for this mock example
-      if (!isWeekend(currentDate)) {
-        // Add some randomness to availability (70% chance a weekday is available)
-        if (Math.random() > 0.3) {
-          availableDates.push(format(currentDate, 'yyyy-MM-dd'));
+    // Get all dates in the month
+    const allDates = [];
+    const currentDate = new Date(startDate);
+    while (currentDate <= endDate) {
+      allDates.push(new Date(currentDate));
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+    
+    // Get blocked dates
+    const blockedDates = await prisma.blockedDate.findMany({
+      where: {
+        date: {
+          gte: startDate,
+          lte: endDate
         }
       }
-      currentDate = add(currentDate, { days: 1 });
+    });
+    
+    // Get weekly availability
+    const weeklyAvailability = await prisma.availability.findMany({
+      where: {
+        isAvailable: true
+      }
+    });
+    
+    // If serviceId is provided, check if the service exists
+    if (serviceId) {
+      const service = await prisma.service.findUnique({
+        where: { id: serviceId, active: true }
+      });
+      
+      if (!service) {
+        log.info('Service not found or inactive', { requestId, serviceId });
+        return success({ availableDates: [] });
+      }
     }
-
-    return NextResponse.json({ availableDates }, { status: 200 });
-  } catch (error) {
-    console.error('Error getting available dates:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch available dates' },
-      { status: 500 }
+    
+    // Calculate available dates
+    const availableDates = allDates.filter(date => {
+      // Check if date is blocked
+      const isBlocked = blockedDates.some(blockedDate => 
+        isSameDay(new Date(blockedDate.date), date)
+      );
+      
+      if (isBlocked) return false;
+      
+      // Check if day has weekly availability
+      const dayOfWeek = date.getDay();
+      const hasAvailability = weeklyAvailability.some(
+        avail => avail.dayOfWeek === dayOfWeek
+      );
+      
+      return hasAvailability;
+    });
+    
+    // Format dates to YYYY-MM-DD
+    const formattedDates = availableDates.map(date => 
+      format(date, 'yyyy-MM-dd')
     );
+    
+    log.info('Available dates calculated', { 
+      requestId, 
+      month, 
+      year, 
+      count: formattedDates.length 
+    });
+    
+    return success({ 
+      availableDates: formattedDates 
+    }, {
+      requestId,
+      headers: {
+        'Cache-Control': 'no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
+    });
+  },
+  {
+    queryValidator: querySchema
   }
-} 
+); 

@@ -1,5 +1,11 @@
-import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { 
+  createGetHandler,
+  success,
+  log
+} from '@/lib/api';
+import { NextRequest } from 'next/server';
+import { createAuthenticatedHandler, withRequestLogging, withErrorHandling } from '@/lib/api/authHandler';
 
 // Force the route to be dynamic and bypass middleware caching
 export const dynamic = 'force-dynamic';
@@ -7,16 +13,11 @@ export const fetchCache = 'force-no-store';
 export const revalidate = 0;
 
 // GET /api/services - Get all active services
-export async function GET() {
-  console.log('Services API called:', new Date().toISOString());
-  console.log('Current route: /api/services');
-  
-  try {
-    console.log('Fetching services from database...');
+export const GET = createAuthenticatedHandler(
+  async (request: NextRequest, context) => {
+    const { requestId } = context;
     
-    // Connect to database
-    await prisma.$connect();
-    console.log('Database connected for services fetch');
+    log.info('Fetching active services', { requestId });
     
     const services = await prisma.service.findMany({
       where: {
@@ -28,38 +29,24 @@ export async function GET() {
       ]
     });
     
-    console.log(`Found ${services.length} active services`);
+    log.info(`Found ${services.length} active services`, { requestId, count: services.length });
     
-    if (services.length === 0) {
-      console.warn('No active services found in database');
-    }
+    // Set cache headers
+    const headers = new Headers();
+    headers.set('Cache-Control', 'no-store, must-revalidate');
+    headers.set('Pragma', 'no-cache');
+    headers.set('Expires', '0');
     
-    return NextResponse.json(services, {
-      headers: {
-        'Cache-Control': 'no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0'
-      }
-    });
-  } catch (error) {
-    console.error('Error fetching services:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch services', details: error instanceof Error ? error.message : 'Unknown error' },
-      { 
-        status: 500,
-        headers: {
-          'Cache-Control': 'no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0'
-        }
-      }
+    return Response.json(
+      { success: true, data: services },
+      { headers }
     );
-  } finally {
-    try {
-      await prisma.$disconnect();
-      console.log('Database disconnected after services fetch');
-    } catch (disconnectError) {
-      console.error('Error disconnecting from database:', disconnectError);
+  },
+  {
+    allowedMethods: ['GET'],
+    middleware: [withRequestLogging(), withErrorHandling()],
+    authOptions: {
+      allowPublicAccess: true // Public endpoint, no authentication required
     }
   }
-} 
+); 

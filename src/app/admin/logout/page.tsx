@@ -1,99 +1,58 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { SignOutButton, useClerk } from '@clerk/nextjs';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Loader2, LogOut } from 'lucide-react';
-import { withErrorBoundary } from '@/components/ErrorBoundary';
-import { useAdminAuth } from '@/hooks/useAdminAuth';
-import { logError } from '@/lib/errorHandling';
+import { useClerk } from '@clerk/nextjs';
+import { Loader2 } from 'lucide-react';
 
-function LogoutPage() {
-  const router = useRouter();
+export default function LogoutPage() {
   const { signOut } = useClerk();
-  const { refreshToken } = useAdminAuth();
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Function to handle full logout
-  const handleLogout = async () => {
-    try {
-      setIsLoggingOut(true);
-      
-      // Clear Clerk session
-      await signOut();
-      
-      // Attempt to clear tokens from local storage
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('auth_expiry');
-      
-      // Redirect to sign-in page
-      router.push('/admin/sign-in');
-    } catch (err) {
-      logError(err, 'Error during logout');
-      setError('There was an error logging out. Please try again.');
-      setIsLoggingOut(false);
-    }
-  };
-
+  
   useEffect(() => {
-    // Set a timeout to redirect automatically after 3 seconds
-    const timer = setTimeout(() => {
-      if (!isLoggingOut && !error) {
-        handleLogout();
+    const performLogout = async () => {
+      try {
+        // Clear browser storage to be safe
+        if (typeof window !== 'undefined') {
+          localStorage.clear();
+          sessionStorage.clear();
+          
+          // Clear all cookies by setting expiry in the past
+          document.cookie.split(";").forEach(function(c) {
+            document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+          });
+        }
+        
+        // Sign out of Clerk with a timeout
+        await Promise.race([
+          signOut(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Logout timeout')), 3000))
+        ]);
+        
+        // Force redirect to sign-in with cache-busting parameter
+        const timestamp = Date.now();
+        window.location.href = `/admin/sign-in?logout=success&t=${timestamp}`;
+      } catch (err) {
+        console.error('Logout failed:', err);
+        setError('Sign out failed. Please try again.');
+        
+        // Force redirect anyway after a delay
+        setTimeout(() => {
+          window.location.href = '/admin/sign-in?error=Logout failed. Please try again.';
+        }, 2000);
       }
-    }, 3000);
+    };
     
-    return () => clearTimeout(timer);
-  }, []);
-
+    performLogout();
+  }, [signOut]);
+  
   return (
-    <div className="flex justify-center items-center min-h-screen bg-gray-50 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">Logging Out</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4 text-center">
-          {error ? (
-            <>
-              <p className="text-red-500">{error}</p>
-              <Button 
-                onClick={handleLogout}
-                className="w-full"
-              >
-                Try Again
-              </Button>
-            </>
-          ) : isLoggingOut ? (
-            <div className="flex flex-col items-center justify-center gap-2">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <p>Signing you out...</p>
-            </div>
-          ) : (
-            <>
-              <p>You are being signed out. Redirecting in a moment...</p>
-              <Button 
-                onClick={handleLogout}
-                className="w-full mt-4 flex items-center justify-center gap-2"
-              >
-                <LogOut className="h-4 w-4" />
-                Sign Out Now
-              </Button>
-              <Button 
-                variant="outline" 
-                onClick={() => router.back()}
-                className="w-full mt-2"
-              >
-                Cancel
-              </Button>
-            </>
-          )}
-        </CardContent>
-      </Card>
+    <div className="flex flex-col items-center justify-center min-h-screen p-4">
+      <div className="text-center mb-4">
+        <Loader2 className="h-8 w-8 mx-auto mb-4 animate-spin text-primary" />
+        <h1 className="text-2xl font-bold mb-2">Signing Out</h1>
+        <p className="text-gray-500">Please wait while we sign you out...</p>
+        {error && <p className="text-red-500 mt-4">{error}</p>}
+      </div>
     </div>
   );
-}
-
-export default withErrorBoundary(LogoutPage); 
+} 

@@ -1,116 +1,184 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { 
+  createGetHandler,
+  createPutHandler,
+  success,
+  unauthorized,
+  badRequest,
+  log,
+  string,
+  boolean,
+  array,
+  createObjectValidator
+} from '@/lib/api';
 import { prisma } from '@/lib/prisma';
-import { getAuth } from '@clerk/nextjs/server';
+import { verifyAuth } from '@/lib/auth';
 
-// Helper function to check authentication
-function checkAuth(req: NextRequest) {
-  // Check if user is authenticated via Clerk
-  const { userId } = getAuth(req);
-  if (userId) return true;
-  
-  // Check for Bearer token
-  const authHeader = req.headers.get('authorization');
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    return true;
-  }
-  
-  return false;
+// Force dynamic rendering and bypass middleware caching
+export const dynamic = 'force-dynamic';
+
+// Interface for time slot data
+interface TimeSlot {
+  startTime: string;
+  endTime: string;
 }
 
-// GET /api/admin/availability/weekly
-export async function GET(req: NextRequest) {
-  try {
-    console.log('Fetching weekly availability...');
-    console.log('Using database URL:', process.env.DATABASE_URL);
+// Interface for a single day's settings
+interface DaySettings {
+  enabled: boolean;
+  timeSlots: TimeSlot[];
+}
+
+// Interface for the weekly availability update request body
+interface WeeklyAvailabilityRequestBody {
+  days: {
+    [dayName: string]: DaySettings;
+  };
+}
+
+// Validation schema for time slots
+const timeSlotSchema = createObjectValidator<TimeSlot>({
+  startTime: string({ required: true }),
+  endTime: string({ required: true })
+});
+
+// Validation schema for day settings
+const daySettingsSchema = createObjectValidator<DaySettings>({
+  enabled: boolean({ required: true }),
+  timeSlots: array(timeSlotSchema)
+});
+
+// Validation schema for weekly availability update request
+const weeklyAvailabilitySchema = createObjectValidator<WeeklyAvailabilityRequestBody>({
+  days: createObjectValidator({
+    Sunday: daySettingsSchema,
+    Monday: daySettingsSchema,
+    Tuesday: daySettingsSchema,
+    Wednesday: daySettingsSchema,
+    Thursday: daySettingsSchema,
+    Friday: daySettingsSchema,
+    Saturday: daySettingsSchema
+  })
+});
+
+// GET /api/admin/availability/weekly - Get weekly availability settings
+export const GET = createGetHandler(
+  async ({ requestId, request }) => {
+    log.info('Fetching weekly availability', { requestId });
     
-    // Check authentication and return clear error for client
-    if (!checkAuth(req)) {
-      return NextResponse.json(
-        { error: 'Unauthorized - Please sign in to access this resource' },
-        { status: 401 }
-      );
+    // Authenticate request
+    const authResult = await verifyAuth(request);
+    if (!authResult.authenticated) {
+      log.warn('Authentication failed for weekly availability GET request', { 
+        requestId, 
+        reason: authResult.reason 
+      });
+      return unauthorized(authResult.reason || 'Unauthorized - Please sign in to access this resource');
     }
     
-    // Test database connection
-    try {
-      await prisma.$connect();
-      console.log('Database connection successful for availability fetch');
-      
-      // Log database connection details
-      const connectionInfo = await prisma.$queryRaw`PRAGMA database_list`;
-      console.log('Database connection details:', connectionInfo);
-    } catch (dbError) {
-      console.error('Database connection failed for availability:', dbError);
-      return NextResponse.json(
-        { error: 'Database connection failed' },
-        { status: 500 }
-      );
-    }
+    log.info('User authenticated', { 
+      requestId, 
+      userId: authResult.userId 
+    });
     
     // Fetch all weekly availability settings
-    const availability = await prisma.availability.findMany({
+    const availabilityRecords = await prisma.availability.findMany({
       orderBy: {
         dayOfWeek: 'asc'
       }
     });
     
-    // Log query info (removed toSQL calls that are not available)
-    console.log('Running availability query with orderBy dayOfWeek ascending');
+    log.info('Raw availability records retrieved', { 
+      requestId, 
+      count: availabilityRecords.length 
+    });
     
-    console.log(`Found ${availability.length} availability slots`);
+    // Transform into a more user-friendly format grouped by day
+    const days = [
+      'Sunday',
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday'
+    ];
     
-    if (availability.length === 0) {
-      // Try a raw query to see if it returns data
-      const rawAvailability = await prisma.$queryRaw`SELECT * FROM "Availability"`;
-      console.log(`Raw query found: ${Array.isArray(rawAvailability) ? rawAvailability.length : 0} records`);
-      console.log('Raw availability data:', rawAvailability);
-    }
+    // Initialize weekly availability with all days disabled by default
+    const weeklyAvailability: Record<string, DaySettings> = {};
     
-    return NextResponse.json(availability);
-  } catch (error) {
-    console.error('Error fetching availability:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch availability settings' },
-      { status: 500 }
-    );
-  } finally {
-    await prisma.$disconnect();
+    days.forEach(day => {
+      weeklyAvailability[day] = {
+        enabled: false,
+        timeSlots: []
+      };
+    });
+    
+    // Process the records into day-by-day structure
+    availabilityRecords.forEach(record => {
+      const dayName = days[record.dayOfWeek];
+      
+      // If this is the first record for this day, mark it as enabled
+      if (weeklyAvailability[dayName].timeSlots.length === 0) {
+        weeklyAvailability[dayName].enabled = true;
+      }
+      
+      // Add the time slot
+      weeklyAvailability[dayName].timeSlots.push({
+        startTime: record.startTime,
+        endTime: record.endTime
+      });
+    });
+    
+    log.info('Weekly availability formatted successfully', { requestId });
+    
+    return success({ 
+      weeklyAvailability,
+      rawRecords: availabilityRecords 
+    }, { requestId });
   }
-}
+);
 
-// POST /api/admin/availability/weekly
-export async function POST(req: NextRequest) {
-  try {
-    console.log('Updating weekly availability...');
+// PUT /api/admin/availability/weekly - Update weekly availability settings
+export const PUT = createPutHandler(
+  async ({ body, requestId, request }) => {
+    log.info('Updating weekly availability', { requestId });
     
-    // Check authentication and return clear error for client
-    if (!checkAuth(req)) {
-      return NextResponse.json(
-        { error: 'Unauthorized - Please sign in to access this resource' },
-        { status: 401 }
-      );
+    // Authenticate request
+    const authResult = await verifyAuth(request);
+    if (!authResult.authenticated) {
+      log.warn('Authentication failed for weekly availability PUT request', { 
+        requestId, 
+        reason: authResult.reason 
+      });
+      return unauthorized(authResult.reason || 'Unauthorized - Please sign in to access this resource');
     }
     
-    // Test database connection
-    try {
-      await prisma.$connect();
-      console.log('Database connection successful for availability update');
-    } catch (dbError) {
-      console.error('Database connection failed for availability update:', dbError);
-      return NextResponse.json(
-        { error: 'Database connection failed' },
-        { status: 500 }
-      );
-    }
+    log.info('User authenticated', { 
+      requestId, 
+      userId: authResult.userId 
+    });
     
-    const { days } = await req.json();
+    const { days } = body;
     
     if (!days) {
-      return NextResponse.json(
-        { error: 'Missing days data' },
-        { status: 400 }
-      );
+      log.warn('Missing days data in request body', { requestId });
+      return badRequest('Missing days data');
     }
+    
+    // Helper function to convert day name to number (0-6)
+    const getDayOfWeek = (dayName: string): number => {
+      const daysMap: Record<string, number> = {
+        'Sunday': 0,
+        'Monday': 1,
+        'Tuesday': 2,
+        'Wednesday': 3,
+        'Thursday': 4,
+        'Friday': 5,
+        'Saturday': 6
+      };
+      
+      return daysMap[dayName] || 0;
+    };
     
     // Process each day's settings
     const operations = [];
@@ -118,7 +186,14 @@ export async function POST(req: NextRequest) {
     // For each day, delete existing settings and create new ones
     for (const [dayName, settings] of Object.entries(days)) {
       const dayOfWeek = getDayOfWeek(dayName);
-      const { enabled, timeSlots } = settings as { enabled: boolean; timeSlots: any[] };
+      const { enabled, timeSlots } = settings as DaySettings;
+      
+      log.info('Processing day settings', { 
+        requestId, 
+        day: dayName, 
+        enabled, 
+        timeSlotCount: timeSlots.length 
+      });
       
       // Delete existing settings for this day
       operations.push(
@@ -132,6 +207,11 @@ export async function POST(req: NextRequest) {
         for (const slot of timeSlots) {
           // Validate time slot
           if (!slot.startTime || !slot.endTime) {
+            log.warn('Skipping invalid time slot', { 
+              requestId, 
+              day: dayName, 
+              slot 
+            });
             continue; // Skip invalid time slots
           }
           
@@ -149,37 +229,22 @@ export async function POST(req: NextRequest) {
       }
     }
     
+    log.info('Executing availability update transaction', { 
+      requestId, 
+      operationCount: operations.length 
+    });
+    
     // Execute all operations in a transaction
     await prisma.$transaction(operations);
     
-    console.log('Weekly availability updated successfully');
+    log.info('Weekly availability updated successfully', { requestId });
     
-    return NextResponse.json({
-      success: true,
-      message: 'Weekly availability updated successfully'
-    });
-  } catch (error) {
-    console.error('Error updating availability:', error);
-    return NextResponse.json(
-      { error: 'Failed to update availability settings' },
-      { status: 500 }
-    );
-  } finally {
-    await prisma.$disconnect();
+    return success({
+      message: 'Weekly availability updated successfully',
+      operationCount: operations.length
+    }, { requestId });
+  },
+  {
+    bodyValidator: weeklyAvailabilitySchema
   }
-}
-
-// Helper function to convert day name to number (0-6)
-function getDayOfWeek(dayName: string): number {
-  const daysMap: Record<string, number> = {
-    'Sunday': 0,
-    'Monday': 1,
-    'Tuesday': 2,
-    'Wednesday': 3,
-    'Thursday': 4,
-    'Friday': 5,
-    'Saturday': 6
-  };
-  
-  return daysMap[dayName] || 0;
-} 
+); 

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import AdminLink from './AdminLink';
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
@@ -116,9 +117,7 @@ const Footer = () => {
             © {currentYear} Hoitohuone Zenni. Kaikki oikeudet pidätetään.
           </p>
           <div className="mt-2 text-center text-neutral-500 text-xs">
-            <Link href="/admin/login" className="hover:text-neutral-700 transition-colors">
-              Admin
-            </Link>
+            <AdminLink />
           </div>
         </div>
       </div>

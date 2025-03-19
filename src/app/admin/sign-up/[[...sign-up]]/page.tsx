@@ -29,7 +29,7 @@ export default function SignUpPage() {
             }}
             routing="path"
             path="/admin/sign-up"
-            redirectUrl="/admin/dashboard"
+            afterSignUpUrl="/admin/dashboard"
           />
           
           <div className="mt-6 text-center">

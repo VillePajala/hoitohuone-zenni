@@ -1,46 +1,61 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { 
+  createGetHandler,
+  createPostHandler,
+  createDeleteHandler,
+  success,
+  unauthorized,
+  badRequest,
+  log,
+  string,
+  createObjectValidator
+} from '@/lib/api';
 import { prisma } from '@/lib/prisma';
-import { getAuth } from '@clerk/nextjs/server';
+import { verifyAuth } from '@/lib/auth';
 
-// Helper function to check authentication
-function checkAuth(req: NextRequest) {
-  // Check if user is authenticated via Clerk
-  const { userId } = getAuth(req);
-  if (userId) return true;
-  
-  // Check for Bearer token
-  const authHeader = req.headers.get('authorization');
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    return true;
-  }
-  
-  return false;
+// Force dynamic rendering and bypass middleware caching
+export const dynamic = 'force-dynamic';
+
+// Interface for blocked date data
+interface BlockedDateData {
+  date: string;
+  reason: string;
 }
 
-// GET /api/admin/availability/blocked
-export async function GET(req: NextRequest) {
-  try {
-    console.log('Fetching blocked dates...');
+// Interface for delete request
+interface DeleteBlockedDateData {
+  id: string;
+}
+
+// Validation schema for creating a blocked date
+const createBlockedDateSchema = createObjectValidator<BlockedDateData>({
+  date: string({ required: true }),
+  reason: string({ required: true })
+});
+
+// Validation schema for deleting a blocked date
+const deleteBlockedDateSchema = createObjectValidator<DeleteBlockedDateData>({
+  id: string({ required: true })
+});
+
+// GET /api/admin/availability/blocked - Get all blocked dates
+export const GET = createGetHandler(
+  async ({ requestId, request }) => {
+    log.info('Fetching blocked dates', { requestId });
     
-    // Check authentication and return clear error for client
-    if (!checkAuth(req)) {
-      return NextResponse.json(
-        { error: 'Unauthorized - Please sign in to access this resource' },
-        { status: 401 }
-      );
+    // Authenticate request
+    const authResult = await verifyAuth(request);
+    if (!authResult.authenticated) {
+      log.warn('Authentication failed for blocked dates GET request', { 
+        requestId, 
+        reason: authResult.reason 
+      });
+      return unauthorized(authResult.reason || 'Unauthorized - Please sign in to access this resource');
     }
     
-    // Add database connection test
-    try {
-      await prisma.$connect();
-      console.log('Database connection successful for blocked dates fetch');
-    } catch (dbError) {
-      console.error('Database connection failed for blocked dates:', dbError);
-      return NextResponse.json(
-        { error: 'Database connection failed' },
-        { status: 500 }
-      );
-    }
+    log.info('User authenticated', { 
+      requestId, 
+      userId: authResult.userId 
+    });
     
     // Fetch all blocked dates
     const blockedDates = await prisma.blockedDate.findMany({
@@ -49,94 +64,122 @@ export async function GET(req: NextRequest) {
       }
     });
     
-    console.log(`Found ${blockedDates.length} blocked dates`);
-    
-    return NextResponse.json(blockedDates);
-  } catch (error) {
-    console.error('Error fetching blocked dates:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch blocked dates' },
-      { status: 500 }
-    );
-  } finally {
-    await prisma.$disconnect();
-  }
-}
-
-// POST /api/admin/availability/blocked
-export async function POST(req: NextRequest) {
-  try {
-    console.log('Creating new blocked date...');
-    
-    // Check authentication and return clear error for client
-    if (!checkAuth(req)) {
-      return NextResponse.json(
-        { error: 'Unauthorized - Please sign in to access this resource' },
-        { status: 401 }
-      );
-    }
-    
-    const data = await req.json();
-    
-    // Validate required fields
-    if (!data.date || !data.reason) {
-      return NextResponse.json(
-        { error: 'Missing required fields (date, reason)' },
-        { status: 400 }
-      );
-    }
-    
-    // Create new blocked date
-    const blockedDate = await prisma.blockedDate.create({
-      data: {
-        date: new Date(data.date),
-        reason: data.reason
-      }
+    log.info('Blocked dates retrieved', { 
+      requestId, 
+      count: blockedDates.length 
     });
     
-    return NextResponse.json(blockedDate);
-  } catch (error) {
-    console.error('Error creating blocked date:', error);
-    return NextResponse.json(
-      { error: 'Failed to create blocked date' },
-      { status: 500 }
-    );
+    return success(blockedDates, { requestId });
   }
-}
+);
 
-// DELETE /api/admin/availability/blocked
-export async function DELETE(req: NextRequest) {
-  try {
-    console.log('Deleting blocked date...');
+// POST /api/admin/availability/blocked - Create a new blocked date
+export const POST = createPostHandler<BlockedDateData>(
+  async ({ body, requestId, request }) => {
+    log.info('Creating new blocked date', { 
+      requestId,
+      date: body.date 
+    });
     
-    // Check authentication and return clear error for client
-    if (!checkAuth(req)) {
-      return NextResponse.json(
-        { error: 'Unauthorized - Please sign in to access this resource' },
-        { status: 401 }
-      );
+    // Authenticate request
+    const authResult = await verifyAuth(request);
+    if (!authResult.authenticated) {
+      log.warn('Authentication failed for blocked dates POST request', { 
+        requestId, 
+        reason: authResult.reason 
+      });
+      return unauthorized(authResult.reason || 'Unauthorized - Please sign in to access this resource');
     }
     
-    const { id } = await req.json();
+    log.info('User authenticated', { 
+      requestId, 
+      userId: authResult.userId 
+    });
+    
+    try {
+      // Create new blocked date
+      const blockedDate = await prisma.blockedDate.create({
+        data: {
+          date: new Date(body.date),
+          reason: body.reason
+        }
+      });
+      
+      log.info('Blocked date created successfully', { 
+        requestId, 
+        blockedDateId: blockedDate.id 
+      });
+      
+      return success(blockedDate, { requestId });
+    } catch (error) {
+      log.error('Failed to create blocked date', { 
+        requestId, 
+        error,
+        date: body.date 
+      });
+      
+      return badRequest('Failed to create blocked date. The date may already be blocked.');
+    }
+  },
+  {
+    bodyValidator: createBlockedDateSchema
+  }
+);
+
+// DELETE /api/admin/availability/blocked - Delete a blocked date
+export const DELETE = createDeleteHandler(
+  async ({ params, requestId, request }) => {
+    log.info('Deleting blocked date', { requestId });
+    
+    // Authenticate request
+    const authResult = await verifyAuth(request);
+    if (!authResult.authenticated) {
+      log.warn('Authentication failed for blocked dates DELETE request', { 
+        requestId, 
+        reason: authResult.reason 
+      });
+      return unauthorized(authResult.reason || 'Unauthorized - Please sign in to access this resource');
+    }
+    
+    log.info('User authenticated', { 
+      requestId, 
+      userId: authResult.userId 
+    });
+    
+    // For this endpoint, we expect the ID to be in the request body
+    // since it's a direct DELETE to /api/admin/availability/blocked
+    // and not to a dynamic route path
+    const body = await request.json();
+    const id = body.id;
     
     if (!id) {
-      return NextResponse.json(
-        { error: 'Missing required field (id)' },
-        { status: 400 }
-      );
+      log.warn('Missing blocked date ID', { requestId });
+      return badRequest('Missing required field (id)');
     }
     
-    // Delete the blocked date
-    await prisma.blockedDate.delete({
-      where: { id }
-    });
-    
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error('Error deleting blocked date:', error);
-    return NextResponse.json(
-      { error: 'Failed to delete blocked date' },
-      { status: 500 }
-    );
+    try {
+      // Delete the blocked date
+      await prisma.blockedDate.delete({
+        where: { id }
+      });
+      
+      log.info('Blocked date deleted successfully', { 
+        requestId, 
+        id 
+      });
+      
+      return success({ 
+        message: 'Blocked date deleted successfully',
+        id
+      }, { requestId });
+    } catch (error) {
+      log.error('Failed to delete blocked date', { 
+        requestId, 
+        error,
+        id 
+      });
+      
+      return badRequest('Failed to delete blocked date. The date may not exist.');
+    }
   }
-} 
+); 

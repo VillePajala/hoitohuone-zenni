@@ -4,44 +4,25 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
 import { ErrorType, createError, parseApiError, logError } from '@/lib/errorHandling';
-
-// Constants for token management
-const TOKEN_REFRESH_MARGIN_MS = 5 * 60 * 1000; // 5 minutes before expiration
-const TOKEN_CHECK_INTERVAL_MS = 60 * 1000; // Check token every minute
-const MIN_REFRESH_INTERVAL_MS = 30 * 1000; // Minimum 30 seconds between refreshes
-
-/**
- * Parse JWT token to get expiration time
- */
-function getTokenExpiryTime(token: string): number | null {
-  try {
-    // JWT tokens are three parts separated by dots
-    const parts = token.split('.');
-    if (parts.length !== 3) return null;
-    
-    // The second part contains the payload, which is base64 encoded
-    const payload = JSON.parse(atob(parts[1]));
-    
-    // Get the expiration time, which is in seconds
-    const exp = payload.exp;
-    if (!exp) return null;
-    
-    // Convert to milliseconds
-    return exp * 1000;
-  } catch (error) {
-    logError(error, 'Error parsing JWT token');
-    return null;
-  }
-}
+import { authLogger } from '@/lib/authLogger';
+import { AuthService } from '@/types/auth';
+import { 
+  getTokenExpiryTime, 
+  TOKEN_REFRESH_MARGIN_MS, 
+  TOKEN_CHECK_INTERVAL_MS, 
+  MIN_REFRESH_INTERVAL_MS,
+  formatTokenForDisplay
+} from '@/lib/authUtils';
 
 /**
  * Hook for handling admin authentication
  * Provides functions to make authenticated API requests and tracks auth state
  */
-export function useAdminAuth(redirectToLogin = false) {
+export function useAdminAuth(redirectToLogin = false): AuthService {
   const { getToken, isSignedIn, isLoaded } = useAuth();
   const [isAuthError, setIsAuthError] = useState(false);
   const [cachedToken, setCachedToken] = useState<string | null>(null);
+  const [isRedirecting, setIsRedirecting] = useState(false);
   const tokenExpiryRef = useRef<number | null>(null);
   const refreshTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastRefreshTimeRef = useRef<number>(0);
@@ -52,8 +33,20 @@ export function useAdminAuth(redirectToLogin = false) {
     if (isLoaded) {
       if (!isSignedIn) {
         setIsAuthError(true);
-        if (redirectToLogin) {
-          router.push('/admin/sign-in');
+        
+        if (redirectToLogin && !isRedirecting) {
+          // Prevent redirect loops by checking URL
+          const pathname = window.location.pathname;
+          if (!pathname.includes('/admin/sign-in') && !pathname.includes('/admin/logout')) {
+            setIsRedirecting(true);
+            authLogger.info(`Redirecting unauthenticated user from ${pathname} to sign-in`, {
+              context: 'admin-auth-hook'
+            });
+            
+            // Add redirect_url to return to the current page
+            const redirectUrl = `/admin/sign-in?redirect_url=${encodeURIComponent(pathname)}`;
+            router.push(redirectUrl);
+          }
         }
       } else {
         setIsAuthError(false);
@@ -68,7 +61,7 @@ export function useAdminAuth(redirectToLogin = false) {
         clearInterval(refreshTimerRef.current);
       }
     };
-  }, [isLoaded, isSignedIn, redirectToLogin, router]);
+  }, [isLoaded, isSignedIn, redirectToLogin, router, isRedirecting]);
 
   // Setup token refresh timer
   useEffect(() => {
@@ -99,7 +92,9 @@ export function useAdminAuth(redirectToLogin = false) {
     // Prevent refreshing too frequently
     const timeSinceLastRefresh = now - lastRefreshTimeRef.current;
     if (timeSinceLastRefresh < MIN_REFRESH_INTERVAL_MS) {
-      console.log(`Skipping refresh - last refresh was ${Math.round(timeSinceLastRefresh / 1000)}s ago`);
+      authLogger.info(`Skipping refresh - last refresh was ${Math.round(timeSinceLastRefresh / 1000)}s ago`, {
+        context: 'token-management'
+      });
       return;
     }
     
@@ -107,16 +102,22 @@ export function useAdminAuth(redirectToLogin = false) {
     if (timeUntilExpiry < TOKEN_REFRESH_MARGIN_MS && timeUntilExpiry > -60000) {
       // Only refresh if expiry is between the margin and -60 seconds
       // This prevents endless refresh cycles for very old tokens
-      console.log(`Token expiring soon (${Math.round(timeUntilExpiry / 1000)}s left), refreshing...`);
+      authLogger.info(`Token expiring soon (${Math.round(timeUntilExpiry / 1000)}s left), refreshing...`, {
+        context: 'token-management'
+      });
       await refreshToken();
     } else if (timeUntilExpiry <= -60000) {
       // If token is expired by more than a minute, invalidate it
-      console.log(`Token expired ${Math.abs(Math.round(timeUntilExpiry / 1000))}s ago, invalidating...`);
+      authLogger.info(`Token expired ${Math.abs(Math.round(timeUntilExpiry / 1000))}s ago, invalidating...`, {
+        context: 'token-management'
+      });
       setCachedToken(null);
       tokenExpiryRef.current = null;
       setIsAuthError(true);
     } else {
-      console.log(`Token valid for ${Math.round(timeUntilExpiry / 1000)}s, no refresh needed`);
+      authLogger.info(`Token valid for ${Math.round(timeUntilExpiry / 1000)}s, no refresh needed`, {
+        context: 'token-management'
+      });
     }
   }, []);
 
@@ -134,7 +135,9 @@ export function useAdminAuth(redirectToLogin = false) {
     
     if (expiryTime) {
       const timeUntilExpiry = expiryTime - Date.now();
-      console.log(`Token will expire in ${Math.round(timeUntilExpiry / 1000)}s`);
+      authLogger.info(`Token will expire in ${Math.round(timeUntilExpiry / 1000)}s`, {
+        context: 'token-management'
+      });
     }
   }, []);
 
@@ -149,43 +152,91 @@ export function useAdminAuth(redirectToLogin = false) {
       if (!silent) {
         const timeSinceLastRefresh = now - lastRefreshTimeRef.current;
         if (timeSinceLastRefresh < MIN_REFRESH_INTERVAL_MS) {
-          console.log(`Skipping refresh - last refresh was ${Math.round(timeSinceLastRefresh / 1000)}s ago`);
+          authLogger.info(`Skipping refresh - last refresh was ${Math.round(timeSinceLastRefresh / 1000)}s ago`, {
+            context: 'token-management'
+          });
           return cachedToken !== null;
         }
         
-        console.log('Refreshing auth token...');
+        authLogger.info('Refreshing auth token...', {
+          context: 'token-management'
+        });
       }
       
+      // Mark last refresh time at the beginning to prevent parallel refreshes
       lastRefreshTimeRef.current = now;
-      setCachedToken(null);
-      const newToken = await getToken({ skipCache: true });
       
-      if (newToken) {
-        setCachedToken(newToken);
-        updateTokenExpiry(newToken);
+      try {
+        // First try Clerk token
+        const newToken = await getToken({ skipCache: true });
         
-        if (!silent) {
-          console.log('Auth token refreshed successfully');
+        if (newToken) {
+          setCachedToken(newToken);
+          updateTokenExpiry(newToken);
+          setIsAuthError(false);
+          
+          if (!silent) {
+            authLogger.info('Auth token refreshed successfully from Clerk', {
+              context: 'token-management'
+            });
+          }
+          return true;
         }
-        return true;
+        
+        // If Clerk token fails, try API key as fallback
+        if (typeof window !== 'undefined') {
+          const windowAny = window as any;
+          const apiKey = windowAny.ADMIN_API_SECRET;
+          
+          if (apiKey) {
+            authLogger.info('Using API key as fallback after Clerk refresh failed', {
+              context: 'token-management'
+            });
+            setCachedToken(apiKey);
+            // No expiry for API keys
+            tokenExpiryRef.current = Date.now() + (24 * 60 * 60 * 1000); // 24hr
+            setIsAuthError(false);
+            return true;
+          }
+        }
+        
+        // No token found
+        setCachedToken(null);
+        if (!silent) {
+          // Only set auth error if not a silent refresh
+          setIsAuthError(true);
+        }
+        return false;
+      } catch (error) {
+        authLogger.error('Error refreshing token', { 
+          context: 'token-management',
+          data: error
+        });
+        setCachedToken(null);
+        if (!silent) {
+          // Only set auth error if not a silent refresh
+          setIsAuthError(true);
+        }
+        return false;
       }
-      
-      return false;
     } catch (error) {
       if (!silent) {
         logError(error, 'refreshToken');
+        // Only set auth error if not a silent refresh
+        setIsAuthError(true);
       }
       return false;
     }
-  }, [getToken, updateTokenExpiry]);
+  }, [getToken, updateTokenExpiry, cachedToken]);
 
   /**
    * Make an authenticated fetch request
    */
-  const authFetch = useCallback(async (url: string, options: RequestInit = {}) => {
+  const authFetch = useCallback(async (url: string, options: RequestInit & { __retried?: boolean } = {}) => {
     try {
       // Try to use cached token first instead of checking expiry every time
       let token = cachedToken;
+      let isApiKey = false;
       
       // Only check expiry if we have a token and an expiry time
       if (token && tokenExpiryRef.current) {
@@ -196,7 +247,9 @@ export function useAdminAuth(redirectToLogin = false) {
         if (timeUntilExpiry < TOKEN_REFRESH_MARGIN_MS) {
           const timeSinceLastRefresh = now - lastRefreshTimeRef.current;
           if (timeSinceLastRefresh >= MIN_REFRESH_INTERVAL_MS) {
-            console.log(`Token expiring soon for request to ${url}, refreshing...`);
+            authLogger.info(`Token expiring soon for request to ${url}, refreshing...`, {
+              context: 'token-management'
+            });
             await refreshToken();
             token = cachedToken; // Get the refreshed token
           }
@@ -205,12 +258,60 @@ export function useAdminAuth(redirectToLogin = false) {
       
       // If no cached token, get a new one
       if (!token) {
-        console.log(`No cached token found, fetching new token for ${url}`);
-        token = await getToken();
-        if (token) {
-          setCachedToken(token);
-          updateTokenExpiry(token);
-          lastRefreshTimeRef.current = Date.now();
+        authLogger.info(`No cached token found, fetching new token for ${url}`, {
+          context: 'token-management'
+        });
+        try {
+          token = await getToken();
+          if (token) {
+            setCachedToken(token);
+            updateTokenExpiry(token);
+            lastRefreshTimeRef.current = Date.now();
+          }
+        } catch (tokenError) {
+          authLogger.error("Error getting token", { 
+            context: 'token-management',
+            data: tokenError
+          });
+        }
+      }
+      
+      // If still no token, check for API key as fallback
+      if (!token) {
+        // First try window global
+        if (typeof window !== 'undefined') {
+          // Access as any to avoid TypeScript errors
+          const windowAny = window as any;
+          if (windowAny.ADMIN_API_SECRET) {
+            authLogger.info('Using API key from window global', {
+              context: 'token-management'
+            });
+            token = windowAny.ADMIN_API_SECRET;
+            isApiKey = true;
+          } else {
+            // Try meta tag as backup
+            try {
+              const apiKeyMeta = document.querySelector('meta[name="admin-api-secret"]');
+              if (apiKeyMeta) {
+                const metaApiKey = apiKeyMeta.getAttribute('content');
+                if (metaApiKey) {
+                  authLogger.info('Using API key from meta tag', {
+                    context: 'token-management'
+                  });
+                  token = metaApiKey;
+                  isApiKey = true;
+                  
+                  // Cache it on window for future use
+                  windowAny.ADMIN_API_SECRET = metaApiKey;
+                }
+              }
+            } catch (e) {
+              authLogger.error('Could not get API key from meta tag', { 
+                context: 'token-management',
+                data: e
+              });
+            }
+          }
         }
       }
       
@@ -223,43 +324,112 @@ export function useAdminAuth(redirectToLogin = false) {
         );
       }
       
+      // Log token details for debugging (first 10 chars only for security)
+      authLogger.info(`Using ${isApiKey ? 'API key' : 'auth token'} for ${url}: ${token.substring(0, 10)}...`, {
+        context: 'token-management'
+      });
+      
       const headers = {
         ...(options.headers || {}),
         'Authorization': `Bearer ${token}`,
       };
 
+      authLogger.info(`Sending authenticated request to ${url}`, {
+        context: 'token-management'
+      });
       const response = await fetch(url, {
         ...options,
         headers,
+        credentials: 'include',  // Include cookies with the request
       });
+
+      if (!response.ok) {
+        const status = response.status;
+        authLogger.error(`API request failed with status ${status} for ${url}`, {
+          context: 'token-management'
+        });
+        
+        // Try to parse response body for better error details
+        try {
+          const errorBody = await response.clone().text();
+          authLogger.error(`Error response body`, {
+            context: 'token-management',
+            data: errorBody
+          });
+        } catch (e) {
+          authLogger.error(`Could not read error response body`, {
+            context: 'token-management',
+            data: e
+          });
+        }
+      }
 
       if (response.status === 401) {
         logError('Unauthorized response received, token may be invalid', url);
-        // Clear cached token and try to get a fresh one
-        setCachedToken(null);
-        tokenExpiryRef.current = null;
+        
+        // Only clear token if we've tried to refresh and still got 401
+        if (options.__retried) {
+          authLogger.info('Still getting 401 after token refresh, clearing token cache', {
+            context: 'token-management'
+          });
+          setCachedToken(null);
+          tokenExpiryRef.current = null;
+          setIsAuthError(true);
+          
+          throw createError(
+            ErrorType.AUTHENTICATION,
+            'Your session has expired or is invalid. Please sign in again.'
+          );
+        }
         
         // Try to refresh the token on auth error, but prevent infinite loops
         const now = Date.now();
         const timeSinceLastRefresh = now - lastRefreshTimeRef.current;
         
+        // Only try to refresh once every 30 seconds to avoid infinite loops
         if (timeSinceLastRefresh >= MIN_REFRESH_INTERVAL_MS) {
-          const refreshed = await refreshToken();
-          if (refreshed) {
-            // Retry the request with new token
-            return authFetch(url, options);
+          authLogger.info('Attempting to refresh token after 401 response', {
+            context: 'token-management'
+          });
+          try {
+            const refreshed = await refreshToken();
+            if (refreshed) {
+              // Retry the request with new token
+              authLogger.info('Token refreshed successfully, retrying request', {
+                context: 'token-management'
+              });
+              // Limit retry to just once by adding a retry flag to options
+              if (!options.__retried) {
+                return authFetch(url, { ...options, __retried: true });
+              } else {
+                authLogger.info('Already retried once, not retrying again to avoid loops', {
+                  context: 'token-management'
+                });
+              }
+            } else {
+              authLogger.error('Token refresh failed after 401 response', {
+                context: 'token-management'
+              });
+              setIsAuthError(true);
+            }
+          } catch (refreshError) {
+            authLogger.error('Error refreshing token', { 
+              context: 'token-management',
+              data: refreshError
+            });
+            setIsAuthError(true);
           }
         } else {
-          console.log(`Skipping token refresh after 401 - refreshed ${Math.round(timeSinceLastRefresh / 1000)}s ago`);
+          authLogger.info(`Not refreshing token - last refresh was too recent (${Math.round(timeSinceLastRefresh / 1000)}s ago)`, {
+            context: 'token-management'
+          });
         }
         
-        // If refresh failed or was skipped, throw auth error
-        setIsAuthError(true);
-        throw await parseApiError(response);
-      }
-
-      if (!response.ok) {
-        throw await parseApiError(response);
+        // Return a more descriptive error
+        throw createError(
+          ErrorType.AUTHENTICATION,
+          'Your session has expired or is invalid. Please sign in again.'
+        );
       }
 
       return response;
@@ -287,12 +457,63 @@ export function useAdminAuth(redirectToLogin = false) {
   }, [getToken, cachedToken, refreshToken, updateTokenExpiry]);
 
   /**
-   * Helper for GET requests
+   * Make an authenticated GET request
    */
   const authGet = useCallback(async (url: string) => {
-    const response = await authFetch(url);
-    return response.json();
-  }, [authFetch]);
+    try {
+      const response = await authFetch(url);
+      
+      if (!response.ok) {
+        // If token issues and token refreshed, authFetch will have handled it
+        if (response.status === 401) {
+          setIsAuthError(true);
+          throw createError(
+            ErrorType.AUTHENTICATION,
+            'Authentication failed. Please sign in again.'
+          );
+        }
+        
+        throw await parseApiError(response);
+      }
+      
+      // Reset auth error flag on successful request
+      setIsAuthError(false);
+      return await response.json();
+    } catch (error) {
+      // Handle errors with proper TypeScript checking
+      const appError = error as Error & { type?: ErrorType };
+      const isAuthenticationError = appError?.name === 'ApplicationError' && 
+                                   appError?.type === ErrorType.AUTHENTICATION;
+                                   
+      // Only set auth error if it's a new authentication error
+      if (isAuthenticationError && !isAuthError) {
+        setIsAuthError(true);
+        authLogger.error('Authentication error occurred', { 
+          context: 'token-management',
+          data: error
+        });
+        
+        // Redirect to login page if needed and not already there
+        if (redirectToLogin && !isRedirecting) {
+          // Check current URL to prevent redirect loops
+          const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+          if (!pathname.includes('/admin/sign-in') && !pathname.includes('/admin/logout')) {
+            setIsRedirecting(true);
+            authLogger.info('Redirecting to login page due to auth error', {
+              context: 'token-management',
+              data: { currentPath: pathname }
+            });
+            
+            // Add redirect_url to return after login
+            const redirectUrl = `/admin/sign-in?redirect_url=${encodeURIComponent(pathname)}`;
+            router.push(redirectUrl);
+          }
+        }
+      }
+      
+      throw error;
+    }
+  }, [authFetch, isAuthError, redirectToLogin, router, isRedirecting]);
 
   /**
    * Helper for POST requests
@@ -304,6 +525,7 @@ export function useAdminAuth(redirectToLogin = false) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(data),
+      credentials: 'include', // Include cookies with the request
     });
     
     return response.json();
@@ -319,6 +541,7 @@ export function useAdminAuth(redirectToLogin = false) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(data),
+      credentials: 'include', // Include cookies with the request
     });
     
     return response.json();
@@ -333,6 +556,7 @@ export function useAdminAuth(redirectToLogin = false) {
       headers: {
         'Content-Type': 'application/json',
       },
+      credentials: 'include', // Include cookies with the request
     });
 
     // For DELETE operations, many endpoints return 204 No Content
@@ -347,13 +571,28 @@ export function useAdminAuth(redirectToLogin = false) {
    * Redirect to login page
    */
   const redirectToLoginPage = useCallback(() => {
-    router.push('/admin/sign-in');
-  }, [router]);
+    if (isRedirecting) return; // Prevent multiple redirects
+    
+    // Check current URL to prevent redirect loops
+    const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+    if (pathname.includes('/admin/sign-in') || pathname.includes('/admin/logout')) {
+      return; // Already at login or logout page
+    }
+    
+    setIsRedirecting(true);
+    authLogger.info(`Manual redirect to login page from ${pathname}`, {
+      context: 'admin-auth-hook'
+    });
+    
+    const redirectUrl = `/admin/sign-in?redirect_url=${encodeURIComponent(pathname)}`;
+    router.push(redirectUrl);
+  }, [router, isRedirecting]);
 
   return {
     isLoading: !isLoaded,
     isAuthError,
-    isSignedIn,
+    isSignedIn: !!isSignedIn,
+    isRedirecting,
     authFetch,
     authGet,
     authPost,
