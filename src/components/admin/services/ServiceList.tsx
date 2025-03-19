@@ -36,7 +36,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { useAdminAuth } from '@/hooks/useAdminAuth';
+import { useClerkAdminAuth } from '@/hooks/useClerkAdminAuth';
 
 type Service = {
   id: string;
@@ -135,7 +135,7 @@ function ServiceListComponent() {
   const [reorderMode, setReorderMode] = useState(false);
   const [hasReordered, setHasReordered] = useState(false);
   const router = useRouter();
-  const { authFetch } = useAdminAuth();
+  const { authFetch } = useClerkAdminAuth(true); // Auto-redirect if not authenticated
   
   // Initialize sensors for drag and drop
   const sensors = useSensors(

@@ -59,7 +59,7 @@ interface Booking {
 
 function BookingsPage() {
   const router = useRouter();
-  const { authGet, isAuthError, refreshToken } = useAdminAuth(true); // Redirect to login if not authenticated
+  const { authGet, isAuthError, refreshToken, isSignedIn } = useAdminAuth(true); // Redirect to login if not authenticated
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -93,39 +93,75 @@ function BookingsPage() {
 
   // Fetch services for the filter dropdown
   useEffect(() => {
+    // Track if component is mounted to avoid state updates after unmount
+    let isMounted = true;
+    
     const fetchServices = async () => {
       try {
+        if (!isSignedIn || !authGet) return; // Don't try fetching if not signed in or authGet unavailable
+        
         // Try to use authGet for authenticated requests
         const data = await authGet('/api/admin/services');
-        setServices(data);
+        if (!isMounted) return; // Check if still mounted
+        
+        // Make sure data is an array before setting
+        if (Array.isArray(data)) {
+          setServices(data);
+        } else if (data && Array.isArray(data.services)) {
+          // Handle if API returns { services: [...] } format
+          setServices(data.services);
+        } else {
+          console.error('Services API did not return an array:', data);
+          setServices([]);
+        }
         setError(null);
       } catch (error) {
+        if (!isMounted) return; // Check if still mounted
+        
         logError(error, 'Fetching services');
+        setServices([]); // Set empty array to prevent map errors
         
         // If auth error and we haven't retried too many times, try refreshing token
         if (isAuthError && authRetryCount < 2) {
-          console.log('Auth error detected, attempting to refresh token...');
-          const refreshed = await refreshToken();
-          if (refreshed) {
-            setAuthRetryCount(prev => prev + 1);
-            // Retry fetch after successful refresh
-            fetchServices();
+          console.log('Auth error detected in services fetch, attempting to refresh token...');
+          try {
+            const refreshed = await refreshToken();
+            if (refreshed && isMounted) {
+              setAuthRetryCount(prev => prev + 1);
+              // Wait a moment before retrying to avoid rapid refresh attempts
+              setTimeout(() => {
+                if (isMounted) fetchServices();
+              }, 1000);
+            }
+          } catch (refreshError) {
+            console.error('Error during token refresh:', refreshError);
+            if (isMounted) setError(error as Error);
           }
         } else {
-          setError(error as Error);
+          if (isMounted) setError(error as Error);
         }
       }
     };
     
     fetchServices();
-  }, [authGet, isAuthError, refreshToken, authRetryCount]);
+    
+    // Cleanup function
+    return () => {
+      isMounted = false;
+    };
+  }, [authGet, isAuthError, refreshToken, authRetryCount, isSignedIn]);
 
   // Fetch bookings from API
   useEffect(() => {
-    fetchBookings();
-  }, []);
+    if (!isRefreshing && isSignedIn) {
+      fetchBookings();
+    }
+  }, [isRefreshing, isSignedIn]);
 
   const fetchBookings = async () => {
+    // Track if component is mounted to avoid state updates after unmount
+    let isMounted = true;
+    
     try {
       setIsRefreshing(true);
       setError(null);
@@ -134,34 +170,46 @@ function BookingsPage() {
       
       // Try to use authGet for authenticated requests
       try {
-        const bookingData = await authGet('/api/admin/bookings');
-        if (bookingData && bookingData.bookings) {
-          processBookingData(bookingData.bookings);
-          return;
+        if (authGet) {
+          const bookingData = await authGet('/api/admin/bookings');
+          if (!isMounted) return;
+          
+          if (bookingData && bookingData.bookings) {
+            processBookingData(bookingData.bookings);
+            return;
+          }
         }
       } catch (authError) {
+        if (!isMounted) return;
+        
         logError(authError, 'Error with authenticated bookings request');
         
         // If auth error and we haven't retried too many times, try refreshing token
         if (isAuthError && authRetryCount < 2) {
-          console.log('Auth error detected, attempting to refresh token...');
-          const refreshed = await refreshToken();
-          if (refreshed) {
-            setAuthRetryCount(prev => prev + 1);
-            // Retry after token refresh without falling back to debug endpoint
-            fetchBookings();
-            return;
+          console.log('Auth error detected in bookings fetch, attempting to refresh token...');
+          try {
+            const refreshed = await refreshToken();
+            if (refreshed && isMounted) {
+              setAuthRetryCount(prev => prev + 1);
+              // Wait a moment before letting the effect trigger a re-fetch
+              setTimeout(() => {
+                if (isMounted) setIsRefreshing(false);
+              }, 1000);
+              return;
+            }
+          } catch (refreshError) {
+            console.error('Error refreshing token:', refreshError);
           }
         }
         
         // Only set error if it's not an auth error (which will be handled by useAdminAuth)
         // or if we've already retried
-        if (!isAuthError || authRetryCount >= 2) {
+        if ((!isAuthError || authRetryCount >= 2) && isMounted) {
           setError(authError as Error);
         }
         
-        // If token refresh failed or too many retries, fallback to regular fetch
-        console.log('Falling back to standard fetch after auth failure');
+        // If token refresh failed or too many retries, try fallback
+        console.log('Trying fallback methods for fetching bookings');
       }
       
       // Regular fetch as fallback (will be handled by middleware)
@@ -416,7 +464,7 @@ function BookingsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Services</SelectItem>
-              {services.map(service => (
+              {Array.isArray(services) && services.map(service => (
                 <SelectItem key={service.id} value={service.id}>
                   {service.nameFi || service.name}
                 </SelectItem>

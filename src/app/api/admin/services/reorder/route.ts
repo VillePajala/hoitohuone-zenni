@@ -1,62 +1,123 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { getAuth } from '@clerk/nextjs/server';
+import { 
+  createPostHandler, 
+  success,
+  badRequest,
+  unauthorized,
+  log,
+  createObjectValidator,
+  array,
+  string,
+  number
+} from '@/lib/api';
+import { verifyAuth } from '@/lib/auth';
 
-// Helper function to check authentication
-function checkAuth(req: NextRequest) {
-  // Check if user is authenticated via Clerk
-  const { userId } = getAuth(req);
-  if (userId) return true;
-  
-  // Check for Bearer token
-  const authHeader = req.headers.get('authorization');
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    return true;
-  }
-  
-  return false;
+// Force dynamic rendering
+export const dynamic = 'force-dynamic';
+
+// Define the request body type and validator
+interface ReorderServicesRequestBody {
+  services: Array<{
+    id: string;
+    order: number;
+  }>;
 }
 
-// POST /api/admin/services/reorder - Update service order
-export async function POST(req: NextRequest) {
-  try {
-    // Check authentication
-    if (!checkAuth(req)) {
-      return NextResponse.json(
-        { error: 'Unauthorized - Please sign in to access this resource' },
-        { status: 401 }
-      );
+const reorderServicesSchema = createObjectValidator<ReorderServicesRequestBody>({
+  services: array(
+    createObjectValidator({
+      id: string({ required: true }),
+      order: number({ required: true })
+    }),
+    { required: true }
+  )
+});
+
+// POST /api/admin/services/reorder - Forward to PATCH /api/admin/services
+export const POST = createPostHandler<ReorderServicesRequestBody>(
+  async ({ body, requestId, request }) => {
+    log.info('Service reorder endpoint called', { requestId });
+    
+    // Authenticate request
+    const authResult = await verifyAuth(request);
+    if (!authResult.authenticated) {
+      log.warn('Authentication failed for service reordering', { 
+        requestId, 
+        reason: authResult.reason 
+      });
+      return unauthorized(authResult.reason || 'Unauthorized - Please sign in to access this resource');
     }
     
-    const data = await req.json();
-    
-    // Validate required fields
-    if (!data.services || !Array.isArray(data.services)) {
-      return NextResponse.json(
-        { error: 'Services array is required' },
-        { status: 400 }
-      );
-    }
-    
-    // Update orders in a transaction
-    const updates = data.services.map((service: { id: string, order: number }) => 
-      prisma.service.update({
-        where: { id: service.id },
-        data: { order: service.order }
-      })
-    );
-    
-    await prisma.$transaction(updates);
-    
-    return NextResponse.json({ 
-      success: true,
-      message: 'Service order updated successfully' 
+    log.info('User authenticated for service reordering', { 
+      requestId, 
+      userId: authResult.userId 
     });
-  } catch (error) {
-    console.error('Error reordering services:', error);
-    return NextResponse.json(
-      { error: 'Failed to update service order. Please try again later.' },
-      { status: 500 }
-    );
+    
+    // Validate services array
+    if (!body.services || body.services.length === 0) {
+      log.warn('Empty services array provided', { requestId });
+      return badRequest('Services array cannot be empty');
+    }
+    
+    log.info('Forwarding request to services PATCH endpoint', { 
+      requestId, 
+      serviceCount: body.services.length 
+    });
+    
+    try {
+      // Forward to the PATCH endpoint by making an internal API call
+      const apiUrl = new URL('/api/admin/services', process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000');
+      
+      // Create headers with auth info
+      const headers = new Headers();
+      headers.set('Content-Type', 'application/json');
+      
+      // Forward authorization header if present
+      const authHeader = request.headers.get('authorization');
+      if (authHeader) {
+        headers.set('authorization', authHeader);
+      }
+      
+      // Forward clerk-auth cookies if present
+      const cookie = request.headers.get('cookie');
+      if (cookie) {
+        headers.set('cookie', cookie);
+      }
+      
+      // Make the request to the PATCH endpoint
+      const response = await fetch(apiUrl, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify(body)
+      });
+      
+      // Check if the response was successful
+      if (!response.ok) {
+        const errorData = await response.json();
+        log.error('Error from services PATCH endpoint', { 
+          requestId, 
+          status: response.status,
+          error: errorData
+        });
+        
+        // Return the error with the same status
+        return NextResponse.json(errorData, { status: response.status });
+      }
+      
+      // Return the successful response
+      const result = await response.json();
+      log.info('Services reordered successfully', { requestId });
+      
+      return success({
+        success: true,
+        message: 'Service order updated successfully'
+      }, { requestId });
+    } catch (error) {
+      log.error('Error during service reordering', { requestId, error });
+      throw error; // Let the handler middleware catch and format this error
+    }
+  },
+  {
+    bodyValidator: reorderServicesSchema
   }
-} 
+); 

@@ -1,16 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useUser } from '@clerk/nextjs';
+import { useUser, useAuth } from '@clerk/nextjs';
 import { SkeletonLoader } from '@/components/admin/SkeletonLoader';
-import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { ErrorDisplay } from '@/components/ui/ErrorDisplay';
-import { withErrorBoundary } from '@/components/ErrorBoundary';
-import { ErrorType, createError, logError } from '@/lib/errorHandling';
-import { useAuthContext } from '@/contexts/AuthContext';
+import { ErrorType, createError } from '@/lib/errorHandling';
 
 // Add an interface for the booking type at the top of the file
 interface Booking {
@@ -21,79 +18,57 @@ interface Booking {
   endTime: string;
 }
 
-// API response interface
-interface BookingsResponse {
-  bookings: Booking[];
-}
-
-function AdminDashboardPage() {
+export default function AdminDashboardPage() {
   const router = useRouter();
-  const { user } = useUser();
+  const { user, isLoaded: userLoaded } = useUser();
+  const { isSignedIn, isLoaded: authLoaded } = useAuth();
   const [bookingCount, setBookingCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  
-  // Use our admin auth hook for authenticated API calls
-  const { authFetch } = useAdminAuth();
-  
-  // Use our auth context to check auth state
-  const { isAuthenticated, isLoading: isAuthLoading } = useAuthContext();
 
-  // Fetch dashboard data
+  // Simple effect to fetch bookings data
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      if (!isAuthenticated) return;
-      
+    // Don't fetch until auth is loaded and user is signed in
+    if (!authLoaded || !userLoaded || !isSignedIn) return;
+
+    const fetchBookings = async () => {
       try {
         setIsLoading(true);
-        setError(null);
         
-        // Use the authFetch helper instead of direct fetch
-        const response = await authFetch('/api/admin/bookings');
+        // Simple fetch with standard auth - Clerk will handle the auth headers
+        const response = await fetch('/api/admin/bookings');
         
         if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          const errorMessage = errorData.message && typeof errorData.message === 'string'
-            ? errorData.message
-            : 'Failed to load bookings';
-          
-          throw createError(
-            ErrorType.VALIDATION,
-            errorMessage
-          );
+          throw createError(ErrorType.VALIDATION, 'Failed to load bookings');
         }
         
         const data = await response.json();
-        
-        // The API now returns an object with a bookings property
         const bookings = data.bookings || [];
         
-        // Only count confirmed bookings, exact match
+        // Only count confirmed bookings
         const confirmedBookings = bookings.filter(
           (booking: Booking) => booking.status === 'confirmed'
         );
         
         setBookingCount(confirmedBookings.length);
+        setError(null);
       } catch (err) {
-        logError('Error fetching dashboard data:', err);
+        console.error('Error fetching bookings:', err);
         setError(err instanceof Error ? err : new Error('Failed to load bookings'));
-        setBookingCount(0);
       } finally {
         setIsLoading(false);
       }
     };
 
-    if (isAuthenticated) {
-      fetchDashboardData();
-    }
-  }, [isAuthenticated, authFetch]);
+    fetchBookings();
+  }, [authLoaded, userLoaded, isSignedIn]);
 
-  // Show loading state while auth is initializing
-  if (isAuthLoading) {
+  // Show loading state while auth is loading
+  if (!authLoaded || !userLoaded) {
     return <SkeletonLoader type="dashboard" />;
   }
   
-  // Show skeleton loader while loading data
+  // Show loading state while fetching data
   if (isLoading) {
     return <SkeletonLoader type="dashboard" />;
   }
@@ -107,18 +82,21 @@ function AdminDashboardPage() {
           onRetry={() => {
             setError(null);
             setIsLoading(true);
-            router.refresh();
+            window.location.reload();
           }}
         />
       </div>
     );
   }
 
+  // Show the dashboard
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <div className="mb-6">
         <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-        <p className="text-gray-500">Welcome back, {user?.firstName || user?.emailAddresses[0]?.emailAddress?.split('@')[0] || 'Admin'}</p>
+        <p className="text-gray-500">
+          Welcome back, {user?.firstName || user?.emailAddresses[0]?.emailAddress?.split('@')[0] || 'Admin'}
+        </p>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -162,6 +140,4 @@ function AdminDashboardPage() {
       </div>
     </div>
   );
-}
-
-export default withErrorBoundary(AdminDashboardPage); 
+} 

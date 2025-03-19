@@ -1,239 +1,381 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { 
+  createGetHandler,
+  createPutHandler,
+  createPatchHandler,
+  createDeleteHandler,
+  success,
+  notFound,
+  badRequest,
+  unauthorized,
+  log,
+  string,
+  number,
+  boolean,
+  createObjectValidator
+} from '@/lib/api';
 import { prisma } from '@/lib/prisma';
-import { getAuth } from '@clerk/nextjs/server';
+import { verifyAuth } from '@/lib/auth';
+import { NextRequest } from 'next/server';
+import { createAuthenticatedHandler, withRequestLogging, withErrorHandling } from '@/lib/api/authHandler';
 
-// Helper function to check authentication
-function checkAuth(req: NextRequest) {
-  // Check if user is authenticated via Clerk
-  const { userId } = getAuth(req);
-  if (userId) return true;
-  
-  // Check for Bearer token
-  const authHeader = req.headers.get('authorization');
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    return true;
-  }
-  
-  return false;
+// Force dynamic rendering and bypass middleware caching
+export const dynamic = 'force-dynamic';
+
+// Request body validation schema for PUT/PATCH
+interface UpdateServiceRequestBody {
+  name?: string;
+  nameEn?: string;
+  nameFi?: string;
+  description?: string;
+  descriptionEn?: string;
+  descriptionFi?: string;
+  duration?: number;
+  price?: number;
+  currency?: string;
+  active?: boolean;
 }
 
-// Helper function to handle unwrapping params
-async function getParamId(params: { id: string | Promise<string> }): Promise<string> {
-  // If id is a Promise, await it
-  if (params.id instanceof Promise) {
-    return await params.id;
+// Full update requires more fields
+const putServiceSchema = createObjectValidator<UpdateServiceRequestBody>({
+  name: string({ required: true }),
+  nameEn: string(),
+  nameFi: string(),
+  description: string(),
+  descriptionEn: string(),
+  descriptionFi: string(),
+  duration: number({ required: true }),
+  price: number(),
+  currency: string(),
+  active: boolean({ required: true })
+});
+
+// Partial update allows all fields to be optional
+const patchServiceSchema = createObjectValidator<UpdateServiceRequestBody>({
+  name: string(),
+  nameEn: string(),
+  nameFi: string(),
+  description: string(),
+  descriptionEn: string(),
+  descriptionFi: string(),
+  duration: number(),
+  price: number(),
+  currency: string(),
+  active: boolean()
+});
+
+// Validator functions
+function validatePutService(body: any): UpdateServiceRequestBody {
+  const validationResult = putServiceSchema(body);
+  if (!validationResult.success || !validationResult.data) {
+    throw new Error(validationResult.errors?.[0]?.message || 'Invalid service data');
   }
-  // Otherwise, just return it
-  return params.id;
+  return validationResult.data;
 }
 
-// GET /api/admin/services/[id]
-export async function GET(
-  req: NextRequest,
-  { params }: { params: { id: string | Promise<string> } }
-) {
-  try {
-    // Check authentication
-    if (!checkAuth(req)) {
-      return NextResponse.json(
-        { error: 'Unauthorized - Please sign in to access this resource' },
-        { status: 401 }
-      );
-    }
+function validatePatchService(body: any): UpdateServiceRequestBody {
+  const validationResult = patchServiceSchema(body);
+  if (!validationResult.success || !validationResult.data) {
+    throw new Error(validationResult.errors?.[0]?.message || 'Invalid service data');
+  }
+  return validationResult.data;
+}
+
+// GET /api/admin/services/[id] - Get a specific service
+export const GET = createAuthenticatedHandler(
+  async (request: NextRequest, context) => {
+    const { requestId, params } = context;
+    const serviceId = params?.id;
     
-    const id = await getParamId(params);
+    log.info('Getting service by ID', { requestId, serviceId });
     
-    const service = await prisma.service.findUnique({
-      where: { id }
+    log.info('User authenticated', { 
+      requestId, 
+      userId: context.auth.userId 
     });
     
-    if (!service) {
-      return NextResponse.json(
-        { error: 'Service not found' },
-        { status: 404 }
-      );
-    }
-    
-    return NextResponse.json(service);
-  } catch (error) {
-    console.error('Error fetching service:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch service' },
-      { status: 500 }
-    );
-  }
-}
-
-// PUT /api/admin/services/[id] - Complete update
-export async function PUT(
-  req: NextRequest,
-  { params }: { params: { id: string | Promise<string> } }
-) {
-  try {
-    // Check authentication
-    if (!checkAuth(req)) {
-      return NextResponse.json(
-        { error: 'Unauthorized - Please sign in to access this resource' },
-        { status: 401 }
-      );
-    }
-
-    const id = await getParamId(params);
-    
-    // Check if service exists
-    const existingService = await prisma.service.findUnique({
-      where: { id }
-    });
-    
-    if (!existingService) {
-      return NextResponse.json(
-        { error: 'Service not found' },
-        { status: 404 }
-      );
-    }
-    
-    // Parse request body
-    const data = await req.json();
-    
-    // Validate required fields
-    if (!data.name || !data.duration || typeof data.active !== 'boolean') {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
+    // Validate ID exists
+    if (!serviceId) {
+      log.warn('Missing service ID parameter', { requestId });
+      return Response.json(
+        { success: false, error: 'Service ID is required' },
         { status: 400 }
       );
     }
     
-    // Update service
-    const updatedService = await prisma.service.update({
-      where: { id },
-      data: {
-        name: data.name,
-        nameEn: data.nameEn || data.name,
-        nameFi: data.nameFi || data.name,
-        description: data.description,
-        descriptionEn: data.descriptionEn || data.description,
-        descriptionFi: data.descriptionFi || data.description,
-        duration: data.duration,
-        price: data.price,
-        currency: data.currency || 'EUR',
-        active: data.active
-      }
+    // Get the service
+    const service = await prisma.service.findUnique({
+      where: { id: serviceId }
     });
     
-    return NextResponse.json(updatedService);
-  } catch (error) {
-    console.error('Error updating service:', error);
-    return NextResponse.json(
-      { error: 'Failed to update service' },
-      { status: 500 }
-    );
-  }
-}
-
-// PATCH /api/admin/services/[id] - Partial update
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: { id: string | Promise<string> } }
-) {
-  try {
-    // Check authentication
-    if (!checkAuth(req)) {
-      return NextResponse.json(
-        { error: 'Unauthorized - Please sign in to access this resource' },
-        { status: 401 }
-      );
-    }
-    
-    const id = await getParamId(params);
-    
-    // Check if service exists
-    const existingService = await prisma.service.findUnique({
-      where: { id }
-    });
-    
-    if (!existingService) {
-      return NextResponse.json(
-        { error: 'Service not found' },
+    if (!service) {
+      log.warn('Service not found', { requestId, serviceId });
+      return Response.json(
+        { success: false, error: 'Service not found' },
         { status: 404 }
       );
     }
     
-    // Parse request body
-    const data = await req.json();
-    
-    // Update service with only provided fields
-    const updatedService = await prisma.service.update({
-      where: { id },
-      data
+    log.info('Service retrieved successfully', { 
+      requestId, 
+      serviceId: service.id 
     });
     
-    return NextResponse.json(updatedService);
-  } catch (error) {
-    console.error('Error updating service:', error);
-    return NextResponse.json(
-      { error: 'Failed to update service' },
-      { status: 500 }
-    );
+    return Response.json({ success: true, data: service });
+  },
+  {
+    allowedMethods: ['GET'],
+    middleware: [withRequestLogging(), withErrorHandling()],
+    authOptions: {
+      requiredRoles: ['admin'],
+      unauthorizedMessage: 'Admin access required to view service details'
+    }
   }
-}
+);
 
-// DELETE /api/admin/services/[id]
-export async function DELETE(
-  req: NextRequest,
-  { params }: { params: { id: string | Promise<string> } }
-) {
-  try {
-    // Check authentication
-    if (!checkAuth(req)) {
-      return NextResponse.json(
-        { error: 'Unauthorized - Please sign in to access this resource' },
-        { status: 401 }
+// PUT /api/admin/services/[id] - Complete update of a service
+export const PUT = createAuthenticatedHandler(
+  async (request: NextRequest, context) => {
+    const { requestId, params } = context;
+    const serviceId = params?.id;
+    
+    log.info('Updating service (PUT)', { requestId, serviceId });
+    
+    log.info('User authenticated', { 
+      requestId, 
+      userId: context.auth.userId 
+    });
+    
+    // Get validated body data
+    const body = context.validatedData as UpdateServiceRequestBody;
+    
+    // Validate ID exists
+    if (!serviceId) {
+      log.warn('Missing service ID parameter', { requestId });
+      return Response.json(
+        { success: false, error: 'Service ID is required' },
+        { status: 400 }
       );
     }
     
-    const id = await getParamId(params);
-    
     // Check if service exists
     const existingService = await prisma.service.findUnique({
-      where: { id }
+      where: { id: serviceId }
     });
     
     if (!existingService) {
-      return NextResponse.json(
-        { error: 'Service not found' },
+      log.warn('Service not found for update', { requestId, serviceId });
+      return Response.json(
+        { success: false, error: 'Service not found' },
+        { status: 404 }
+      );
+    }
+    
+    const {
+      name,
+      nameEn,
+      nameFi,
+      description,
+      descriptionEn,
+      descriptionFi,
+      duration,
+      price,
+      currency,
+      active
+    } = body;
+    
+    log.info('Updating service details', { 
+      requestId, 
+      serviceId,
+      name,
+      duration,
+      active 
+    });
+    
+    // Update service
+    const updatedService = await prisma.service.update({
+      where: { id: serviceId },
+      data: {
+        name,
+        nameEn: nameEn || name,
+        nameFi: nameFi || name,
+        description: description || '',
+        descriptionEn: descriptionEn || description || '',
+        descriptionFi: descriptionFi || description || '',
+        duration,
+        price: price || 0,
+        currency: currency || 'EUR',
+        active
+      }
+    });
+    
+    log.info('Service updated successfully (PUT)', { 
+      requestId, 
+      serviceId: updatedService.id 
+    });
+    
+    return Response.json({ success: true, data: updatedService });
+  },
+  {
+    allowedMethods: ['PUT'],
+    validator: validatePutService,
+    middleware: [withRequestLogging(), withErrorHandling()],
+    authOptions: {
+      requiredRoles: ['admin'],
+      unauthorizedMessage: 'Admin access required to update services'
+    }
+  }
+);
+
+// PATCH /api/admin/services/[id] - Partial update of a service
+export const PATCH = createAuthenticatedHandler(
+  async (request: NextRequest, context) => {
+    const { requestId, params } = context;
+    const serviceId = params?.id;
+    
+    log.info('Partially updating service (PATCH)', { requestId, serviceId });
+    
+    log.info('User authenticated', { 
+      requestId, 
+      userId: context.auth.userId 
+    });
+    
+    // Get validated body data
+    const body = context.validatedData as UpdateServiceRequestBody;
+    
+    // Validate ID exists
+    if (!serviceId) {
+      log.warn('Missing service ID parameter', { requestId });
+      return Response.json(
+        { success: false, error: 'Service ID is required' },
+        { status: 400 }
+      );
+    }
+    
+    // Check if service exists
+    const existingService = await prisma.service.findUnique({
+      where: { id: serviceId }
+    });
+    
+    if (!existingService) {
+      log.warn('Service not found for partial update', { requestId, serviceId });
+      return Response.json(
+        { success: false, error: 'Service not found' },
+        { status: 404 }
+      );
+    }
+    
+    log.info('Applying partial updates to service', { 
+      requestId, 
+      serviceId,
+      updateFields: Object.keys(body).join(', ')
+    });
+    
+    // Update service with only provided fields
+    const updatedService = await prisma.service.update({
+      where: { id: serviceId },
+      data: body
+    });
+    
+    log.info('Service updated successfully (PATCH)', { 
+      requestId, 
+      serviceId: updatedService.id 
+    });
+    
+    return Response.json({ success: true, data: updatedService });
+  },
+  {
+    allowedMethods: ['PATCH'],
+    validator: validatePatchService,
+    middleware: [withRequestLogging(), withErrorHandling()],
+    authOptions: {
+      requiredRoles: ['admin'],
+      unauthorizedMessage: 'Admin access required to update services'
+    }
+  }
+);
+
+// DELETE /api/admin/services/[id] - Delete a service
+export const DELETE = createAuthenticatedHandler(
+  async (request: NextRequest, context) => {
+    const { requestId, params } = context;
+    const serviceId = params?.id;
+    
+    log.info('Deleting service', { requestId, serviceId });
+    
+    log.info('User authenticated', { 
+      requestId, 
+      userId: context.auth.userId 
+    });
+    
+    // Validate ID exists
+    if (!serviceId) {
+      log.warn('Missing service ID parameter', { requestId });
+      return Response.json(
+        { success: false, error: 'Service ID is required' },
+        { status: 400 }
+      );
+    }
+    
+    // Check if service exists
+    const existingService = await prisma.service.findUnique({
+      where: { id: serviceId }
+    });
+    
+    if (!existingService) {
+      log.warn('Service not found for deletion', { requestId, serviceId });
+      return Response.json(
+        { success: false, error: 'Service not found' },
         { status: 404 }
       );
     }
     
     // Check if the service has bookings
     const bookingsCount = await prisma.booking.count({
-      where: { serviceId: id }
+      where: { serviceId }
     });
     
     if (bookingsCount > 0) {
+      log.info('Service has bookings, deactivating instead of deleting', { 
+        requestId, 
+        serviceId,
+        bookingsCount
+      });
+      
       // Instead of deleting, just mark as inactive
       const updatedService = await prisma.service.update({
-        where: { id },
+        where: { id: serviceId },
         data: { active: false }
       });
       
-      return NextResponse.json({
-        ...updatedService,
-        message: 'Service has existing bookings. It has been deactivated instead of deleted.'
+      return Response.json({
+        success: true,
+        data: {
+          ...updatedService,
+          message: 'Service has existing bookings. It has been deactivated instead of deleted.'
+        }
       });
     }
     
+    log.info('Deleting service completely', { requestId, serviceId });
+    
     // Delete service if no bookings
     await prisma.service.delete({
-      where: { id }
+      where: { id: serviceId }
     });
     
-    return NextResponse.json({ message: 'Service deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting service:', error);
-    return NextResponse.json(
-      { error: 'Failed to delete service' },
-      { status: 500 }
-    );
+    log.info('Service deleted successfully', { requestId, serviceId });
+    
+    return Response.json({ 
+      success: true, 
+      data: { message: 'Service deleted successfully' }
+    });
+  },
+  {
+    allowedMethods: ['DELETE'],
+    middleware: [withRequestLogging(), withErrorHandling()],
+    authOptions: {
+      requiredRoles: ['admin'],
+      unauthorizedMessage: 'Admin access required to delete services'
+    }
   }
-} 
+); 

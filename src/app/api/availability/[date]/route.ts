@@ -1,36 +1,37 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { 
+  createGetHandler,
+  success,
+  notFound,
+  validationError,
+  log,
+  string,
+  createObjectValidator
+} from '@/lib/api';
+
+// Define interface for typed query parameters
+interface AvailabilityQueryParams {
+  serviceId: string;
+}
+
+// Query parameters validation schema
+const querySchema = createObjectValidator<AvailabilityQueryParams>({
+  serviceId: string({ required: true })
+});
 
 // GET /api/availability/[date]?serviceId=xxx
-export async function GET(
-  req: NextRequest,
-  { params }: { params: { date: string } }
-) {
-  try {
-    // Get query parameters
-    const searchParams = req.nextUrl.searchParams;
-    const serviceId = searchParams.get('serviceId');
+export const GET = createGetHandler(
+  async ({ params, query, requestId }) => {
+    const dateParam = params?.date as string;
+    const serviceId = query?.serviceId as string;
     
-    if (!serviceId) {
-      return NextResponse.json(
-        { error: 'Service ID is required' },
-        { status: 400 }
-      );
-    }
-    
-    // Parse the date string to a Date object
-    const date = new Date(params.date);
-    
-    // Check if date is valid
+    // Validate date format
+    const date = new Date(dateParam);
     if (isNaN(date.getTime())) {
-      return NextResponse.json(
-        { error: 'Invalid date format' },
-        { status: 400 }
-      );
+      return validationError('Invalid date format');
     }
     
-    // Get the day of the week (0-6, where 0 is Sunday)
-    const dayOfWeek = date.getDay();
+    log.info('Checking availability for date and service', { requestId, date: dateParam, serviceId });
     
     // Check if the date is blocked
     const blockedDate = await prisma.blockedDate.findFirst({
@@ -43,7 +44,8 @@ export async function GET(
     });
     
     if (blockedDate) {
-      return NextResponse.json({
+      log.info('Date is blocked', { requestId, date: dateParam, blockedDateId: blockedDate.id });
+      return success({
         available: false,
         message: 'This date is not available for booking',
         timeSlots: []
@@ -56,11 +58,12 @@ export async function GET(
     });
     
     if (!service) {
-      return NextResponse.json(
-        { error: 'Service not found' },
-        { status: 404 }
-      );
+      log.info('Service not found', { requestId, serviceId });
+      return notFound('Service not found');
     }
+    
+    // Get the day of the week (0-6, where 0 is Sunday)
+    const dayOfWeek = date.getDay();
     
     // Get availability settings for the day of the week
     const availabilitySettings = await prisma.availability.findMany({
@@ -68,7 +71,8 @@ export async function GET(
     });
     
     if (availabilitySettings.length === 0) {
-      return NextResponse.json({
+      log.info('No availability set for this day', { requestId, date: dateParam, dayOfWeek });
+      return success({
         available: false,
         message: 'No availability set for this day',
         timeSlots: []
@@ -93,11 +97,13 @@ export async function GET(
       }
     });
     
-    // Calculate available time slots based on:
-    // 1. Availability settings
-    // 2. Existing bookings
-    // 3. Service duration
+    log.info('Retrieved existing bookings', { 
+      requestId, 
+      date: dateParam, 
+      bookingCount: existingBookings.length 
+    });
     
+    // Calculate available time slots
     const serviceDuration = service.duration; // Duration in minutes
     const timeSlots = [];
     
@@ -149,16 +155,27 @@ export async function GET(
       }
     }
     
-    return NextResponse.json({
+    log.info('Calculated available time slots', { 
+      requestId, 
+      date: dateParam, 
+      serviceId, 
+      timeSlotCount: timeSlots.length 
+    });
+    
+    return success({
       available: timeSlots.length > 0,
       message: timeSlots.length > 0 ? 'Available time slots found' : 'No available time slots for this date',
       timeSlots
+    }, {
+      requestId,
+      headers: {
+        'Cache-Control': 'no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
     });
-  } catch (error) {
-    console.error('Error checking availability:', error);
-    return NextResponse.json(
-      { error: 'Failed to check availability' },
-      { status: 500 }
-    );
+  },
+  {
+    queryValidator: querySchema
   }
-} 
+); 
