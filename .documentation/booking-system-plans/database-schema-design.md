@@ -180,7 +180,7 @@ model Booking {
   customerPhone  String?
   language       String    @default("fi")
   notes          String?   @db.Text
-  status         String    @default("confirmed") // confirmed, canceled, etc.
+  status         String    @default("confirmed")
   cancellationId String?   @unique
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
@@ -194,6 +194,19 @@ model Booking {
   @@index([customerEmail])
   @@index([serviceId])
   @@index([status])
+}
+
+model BookingLock {
+  id        String   @id @default(uuid())
+  startTime DateTime
+  endTime   DateTime
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  // Compound unique constraint to prevent overlapping locks
+  @@unique([startTime, endTime])
+  // Index for cleanup of expired locks
+  @@index([expiresAt])
 }
 
 model BlockedDate {

@@ -85,6 +85,22 @@ This document outlines the requirements for developing an online booking system 
 - The system shall maintain data integrity across all operations
 - The system shall enforce buffer times (15 minutes) between appointments
 
+#### 3.4.1 Concurrent Booking Handling
+- The system shall implement optimistic concurrency control for booking operations
+- The system shall handle multiple simultaneous booking attempts for the same time slot by:
+  1. First-success principle: First request to pass validation gets the slot
+  2. Immediate slot locking: Lock time slot during booking transaction
+  3. Clear user feedback: Show immediate feedback if slot becomes unavailable
+  4. Automatic refresh: Update availability for all active users when slot is booked
+- The system shall maintain booking atomicity:
+  1. Either complete the entire booking process or fail completely
+  2. No partial bookings shall be saved
+  3. Locked slots shall be automatically released if booking transaction fails
+- The system shall provide real-time availability updates:
+  1. Maximum 5-second delay for availability updates to other users
+  2. Immediate optimistic UI updates for the booking user
+  3. Clear error handling if optimistic update fails
+
 ### 3.5 Maintainability
 - The system shall have comprehensive logging for troubleshooting
 - The code shall be well-documented and follow best practices
@@ -94,6 +110,8 @@ This document outlines the requirements for developing an online booking system 
 - The system shall be developed using the existing tech stack (React, Next.js, Prisma, PostgreSQL)
 - The system shall not require payment processing
 - The system shall not require integration with external calendar systems
+- All times shall be handled in Finnish time (Europe/Helsinki) as services are delivered locally
+- The system assumes all users are booking from Finland
 
 ## 5. Future Considerations
 - Potential integration with payment processing
