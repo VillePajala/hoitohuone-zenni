@@ -99,6 +99,69 @@ The system follows a **Serverless with API Routes** architecture pattern using N
 - Email notifications for booking cancellations
 - Optional reminder emails
 
+#### 4.2.2 Email Reliability System
+
+##### Email Service Architecture
+- Primary email provider: Resend.com
+- Backup email provider: SendGrid (failover)
+- Email queue system for retry management
+- Persistent email status tracking in database
+
+##### Email Flow and Reliability Measures
+1. **Initial Send Attempt**
+   - Try primary provider (Resend.com)
+   - Maximum response wait: 5 seconds
+   - Track attempt in database
+
+2. **Automatic Failover**
+   - Switch to SendGrid if primary fails
+   - Maximum 2 provider switches per email
+
+3. **Retry Strategy**
+   - Exponential backoff: 1min, 5min, 15min, 1hour
+   - Maximum 4 retry attempts per email
+   - Different providers on each retry
+
+4. **Email Status Tracking**
+```typescript
+model EmailLog {
+  id            String    @id @default(uuid())
+  type          String    // 'BOOKING_CONFIRMATION', 'CANCELLATION', etc.
+  recipient     String
+  status        String    // 'PENDING', 'SENT', 'FAILED'
+  attempts      Int       @default(0)
+  lastAttempt   DateTime?
+  nextRetry     DateTime?
+  errorMessage  String?
+  createdAt     DateTime  @default(now())
+  
+  // Related booking if applicable
+  booking       Booking?  @relation(fields: [bookingId], references: [id])
+  bookingId     String?
+
+  @@index([status, nextRetry]) // For retry queue processing
+  @@index([bookingId])
+}
+```
+
+5. **Monitoring and Alerts**
+   - Real-time email delivery monitoring
+   - Alert on provider failures
+   - Daily email delivery success rate reports
+   - Critical failure notifications to admin
+
+6. **Recovery Procedures**
+   - Automatic provider switching on failure
+   - Manual retry capability in admin panel
+   - Bulk retry for failed emails
+   - Provider health status dashboard
+
+7. **Email Templates**
+   - Pre-compiled and validated templates
+   - Fallback plain text versions
+   - Language variants (fi/en)
+   - Tested across major email clients
+
 ## 5. Data Flow
 
 ### 5.1 Booking Process Flow
@@ -121,7 +184,106 @@ The system follows a **Serverless with API Routes** architecture pattern using N
   3. Server confirms availability on submission
   4. Conflicts resolve with error messages and refreshed data
 
-### 5.3 Admin Booking Management Flow
+### 5.3 Concurrent Booking Protection
+
+#### Database Implementation
+```typescript
+// Example of booking creation with concurrency control
+async function createBooking(bookingData: BookingInput) {
+  return await prisma.$transaction(async (tx) => {
+    // 1. Check if slot is still available with a lock
+    const existingBooking = await tx.booking.findFirst({
+      where: {
+        startTime: { lte: bookingData.endTime },
+        endTime: { gte: bookingData.startTime },
+        status: 'confirmed'
+      },
+      forUpdate: true // This locks the records
+    });
+
+    if (existingBooking) {
+      throw new Error('SLOT_NO_LONGER_AVAILABLE');
+    }
+
+    // 2. Create temporary lock record
+    await tx.bookingLock.create({
+      data: {
+        startTime: bookingData.startTime,
+        endTime: bookingData.endTime,
+        expiresAt: new Date(Date.now() + 30000) // 30 second lock
+      }
+    });
+
+    // 3. Create the actual booking
+    const booking = await tx.booking.create({
+      data: bookingData
+    });
+
+    // 4. Remove the lock
+    await tx.bookingLock.delete({
+      where: {
+        startTime_endTime: {
+          startTime: bookingData.startTime,
+          endTime: bookingData.endTime
+        }
+      }
+    });
+
+    return booking;
+  });
+}
+```
+
+#### Real-time Updates
+```typescript
+// WebSocket event handling for real-time updates
+const bookingSocket = new WebSocket('wss://api.example.com/bookings');
+
+bookingSocket.onmessage = (event) => {
+  const { type, data } = JSON.parse(event.data);
+  
+  if (type === 'SLOT_BOOKED') {
+    // Update local state and UI
+    mutate('/api/availability');
+    
+    // Show notification if user was viewing this slot
+    if (isViewingSlot(data.startTime)) {
+      showNotification('This time slot is no longer available');
+    }
+  }
+};
+```
+
+#### Error Handling
+```typescript
+// Client-side booking attempt with error handling
+async function handleBookingSubmit(data: BookingFormData) {
+  try {
+    // 1. Optimistic UI update
+    mutate('/api/availability', updateAvailabilityOptimistically(data), false);
+
+    // 2. Attempt booking
+    const result = await createBooking(data);
+
+    // 3. Show success and confirm optimistic update
+    showSuccess('Booking confirmed!');
+    mutate('/api/availability');
+
+  } catch (error) {
+    if (error.code === 'SLOT_NO_LONGER_AVAILABLE') {
+      // 4. Revert optimistic update and show error
+      mutate('/api/availability');
+      showError('This slot was just booked by someone else');
+      
+      // 5. Suggest alternative slots
+      const alternatives = await findAlternativeSlots(data.startTime);
+      showAlternatives(alternatives);
+    }
+  }
+}
+```
+
+### 5.4 Admin Booking Management Flow
 1. Admin logs in via Clerk authentication
 2. Admin views calendar of bookings
 3. Admin can:

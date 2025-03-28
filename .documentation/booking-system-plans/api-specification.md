@@ -15,35 +15,78 @@ All API routes are relative to the Next.js API base path:
 
 ### 3.1 Client Endpoints
 
-Public client-facing endpoints don't require authentication.
+Public client-facing endpoints don't require authentication:
+- `GET /api/services`
+- `GET /api/availability/*`
+- `POST /api/bookings/public/*`
+- `DELETE /api/bookings/public/cancel`
 
 ### 3.2 Admin Endpoints
 
-Admin endpoints are protected using Clerk authentication:
+Admin endpoints are protected using Clerk authentication with role-based access control:
 
 ```typescript
-// Authentication middleware example
-import { auth } from '@clerk/nextjs/server';
-import { NextResponse } from 'next/server';
+// middleware.ts
+import { authMiddleware } from "@clerk/nextjs";
+ 
+export default authMiddleware({
+  publicRoutes: [
+    "/",
+    "/book/:path*",
+    "/api/bookings/public/:path*",
+    "/api/services",
+    "/api/availability/:path*"
+  ],
+  ignoredRoutes: [
+    "/api/webhooks/:path*"
+  ]
+});
 
-export function middleware(request) {
+// lib/auth.ts
+import { clerkClient } from "@clerk/nextjs";
+
+export async function hasPermission(userId: string, permission: string) {
+  const user = await clerkClient.users.getUser(userId);
+  const role = user.publicMetadata.role;
+  
+  const permissions = {
+    admin: ["manage_bookings", "manage_services", "manage_availability"],
+    staff: ["view_bookings"]
+  };
+  
+  return role && permissions[role]?.includes(permission);
+}
+
+// Example middleware for protected routes
+import { auth } from "@clerk/nextjs/server";
+import { NextResponse } from "next/server";
+
+export async function adminMiddleware(request: Request) {
   const { userId } = auth();
   
-  // Check if user is authenticated
   if (!userId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   
-  // Additional role checks can be performed here
+  const hasAccess = await hasPermission(userId, "manage_bookings");
+  if (!hasAccess) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
   
   return NextResponse.next();
 }
-
-// Apply middleware to admin routes
-export const config = {
-  matcher: ['/api/admin/:path*'],
-};
 ```
+
+### 3.3 Route Protection Matrix
+
+| Route | Public | Auth Required | Required Permission |
+|-------|--------|--------------|-------------------|
+| `/api/services` | ✅ | | |
+| `/api/availability/*` | ✅ | | |
+| `/api/bookings/public/*` | ✅ | | |
+| `/api/admin/bookings/*` | | ✅ | manage_bookings |
+| `/api/admin/services/*` | | ✅ | manage_services |
+| `/api/admin/availability/*` | | ✅ | manage_availability |
 
 ## 4. Error Handling
 
