@@ -1,0 +1,33 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Service {
+  id            String  @id @default(uuid())
+  title         String // Default title, could be one language or a fallback
+  titleEn       String? // Title in English
+  titleFi       String? // Title in Finnish
+  description   String? // Default description
+  descriptionEn String? // Description in English
+  descriptionFi String? // Description in Finnish
+  duration      Int     // Duration in minutes
+  price         Float   // Price of the service
+  currency      String  @default("EUR") // Currency code
+  color         String? // Color hex code for the service in UI
+  active        Boolean @default(true) // Whether the service is currently offered
+  order         Int?    // Optional ordering for display
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
