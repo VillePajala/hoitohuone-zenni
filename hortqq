@@ -1,0 +1,58 @@
+[33m3968961[m[33m ([m[1;31morigin/pre-booking-system[m[33m)[m Add availability and booking management APIs
+[33m48ae424[m Enhance booking system with availability and slot management APIs
+[33m2531f85[m Add API service route and Prisma client initialization
+[33m6ec2940[m Add Prisma support with schema and dependencies
+[33m6ad9f1f[m Add comprehensive documentation for booking system
+[33mb48554d[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m, [m[1;31morigin/master[m[33m, [m[1;31morigin/HEAD[m[33m)[m Enhance documentation for booking system with new features and architectural details
+[33m2a7c0f7[m Add comprehensive documentation for booking system architecture and API
+[33m5861975[m Enhance authentication system and API structure
+[33md5f4dac[m Add documentation for database schema decisions and PostgreSQL migration plan
+[33ma4c83da[m Merge pull request #2 from VillePajala/feature/booking-system
+[33m49df84f[m[33m ([m[1;31morigin/feature/booking-system[m[33m)[m Update documentation for Hoitohuone Zenni booking system plan and project management
+[33m911c734[m Integrate authentication context and enhance error handling across admin components
+[33m2485054[m Add services layout and update services page structure
+[33m6765eb2[m Enhance authentication and logging in admin routes and components
+[33mb3f65b0[m Enhance BlockedDates component with calendar integration and grouped display
+[33m46f992f[m Add Radix UI tooltip component and enhance weekly schedule validation
+[33m7924ade[m Add Radix UI dialog component and enhance weekly schedule management
+[33m6879833[m Enhance availability management scripts and update API logging
+[33m43c8809[m Enhance availability management with improved data fetching and error handling
+[33m3600f76[m Add service ordering functionality and enhance database schema
+[33m3e7a0a6[m Merge pull request #1 from VillePajala/feature/booking-system
+[33m845327d[m Remove Vercel deployment section from README.md to streamline documentation.
+[33m1c3cbc9[m Update README.md to include licensing and acknowledgements
+[33ma0032b8[m Revise README.md to enhance project documentation and feature overview
+[33m5d2fded[m Update service management features and enhance API handling
+[33m48b815d[m Enhance API routes and middleware for improved service management
+[33m05d5a62[m Refactor booking pages to improve parameter handling and error management
+[33mb020c08[m Update booking management features and enhance UI components
+[33m7fd5eba[m Enhance admin layout and loading experience
+[33mba03b8d[m Enhance authentication handling in API routes and ServiceList component
+[33m4af0cf9[m Add booking status fixing script and enhance dashboard logging
+[33mc089cd3[m Add booking management scripts and skeleton component
+[33m68f7672[m Refactor middleware and admin layout for improved authentication handling
+[33mb63fbae[m Enhance authentication and admin features
+[33m1a2ff33[m Integrate Clerk for authentication and enhance admin features
+[33md2b8eef[m Add admin dashboard and booking management features
+[33m9f7f619[m Add booking cancellation functionality and related UI components
+[33m1271620[m Update footer links with social media URLs and add target attributes for security
+[33m3b144e7[m Add email notification system and testing functionality
+[33m0a94b78[m Refactor database interaction rules and remove booking page
+[33mab1e4c3[m Add booking system components and enhance booking functionality
+[33m2894552[m Update Prisma schema for SQLite support and add seeding functionality
+[33m771d470[m Initial booking system setup with Prisma schema and API routes
+[33m2a8fbbf[m Add booking system implementation plan documentation
+[33md900628[m Refactor image loading and localization handling
+[33m4f08a0d[m Improve image loading with loading states in Finnish home and services pages
+[33m3ed6285[m Enhance image loading with loading states and smooth transitions
+[33m3c1167d[m Refactor testimonial page image loading with TypeScript type safety
+[33mbc5d79d[m Add placeholder images to multiple pages and components
+[33mcc09c13[m Refactor UI components and improve site layout consistency
+[33m9fa0740[m Add page transitions, mobile menu, and loading components
+[33me3822b7[m Implement SEO and structured data with enhanced form components
+[33mdd8c741[m Enhance documentation and project management files
+[33mb8bd681[m Implement internationalization and localization support
+[33mcdde99d[m Create initial website pages and components for Hoitohuone Zenni
+[33mda6a179[m Remove dev flag from package dependencies to include them in production build
+[33m6bc3102[m Update README with project overview, technical stack, and structure details
+[33mc87c614[m Initialize project structure with Next.js, Tailwind CSS, and configuration files
