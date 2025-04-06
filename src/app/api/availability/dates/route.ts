@@ -136,7 +136,14 @@ export async function GET(request: Request) {
       let dayAvailability = regularHoursMap.get(dayOfWeek);
       const specialDay = specialDatesMap.get(dateStr);
       if (specialDay) {
-        dayAvailability = specialDay; // Special date overrides regular hours
+        // Create a compatible object with the required structure
+        dayAvailability = {
+          id: specialDay.id,
+          startTime: specialDay.startTime,
+          endTime: specialDay.endTime,
+          isAvailable: specialDay.isAvailable,
+          dayOfWeek: dayOfWeek // Add the missing dayOfWeek property
+        };
       }
 
       // If no availability rule found or explicitly marked unavailable
